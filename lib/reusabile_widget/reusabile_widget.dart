@@ -13,6 +13,20 @@ Image LogoWidget(String imageName) {
   );
 }
 
+Widget reusableTextFieldpassword(String hintText, IconData icon, bool isPasswordType, TextEditingController controller, {String? Function(String?)? validator}) {
+  return TextFormField(
+    controller: controller,
+    obscureText: isPasswordType,
+    validator: validator,
+    decoration: InputDecoration(
+      prefixIcon: Icon(icon),
+      hintText: hintText,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+    ),
+  );
+}
 // Reusable TextField
 TextField reusableTextField(String text, IconData icon, bool isPasswordType,
     TextEditingController controller, {TextInputType keyboardType = TextInputType.text, String? Function(String?)? validator}) {

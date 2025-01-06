@@ -31,6 +31,8 @@ final TextEditingController _carMakerTextController = TextEditingController();
 final TextEditingController _carTypeTextController = TextEditingController();
 final TextEditingController _genderTextController = TextEditingController();
 final TextEditingController _locationTextController = TextEditingController();
+final TextEditingController _carYearTextController = TextEditingController();
+final TextEditingController _DCTextController = TextEditingController();
   final FirestoreService firestoreService = FirestoreService();
 
   final _formKey = GlobalKey<FormState>();
@@ -52,7 +54,7 @@ String? selectedCarMaker;
 String? selectedCarColor;
   final List<String> carColor = ['red', 'green', 'blue', 'yellow'];
 String? selectedCarYear;
-  final List<String> carYear = ['2010', '2011', '2010', '2013'];
+  final List<String> carYear = ['2010', '2011', '2012', '2013'];
 String? selectedCarModel;
   final List<String> carModel = ['Toyota', 'Nissan'];
 
@@ -64,6 +66,7 @@ String? selectedCarModel;
     _districtTextController.dispose();
     _carptTextController.dispose();
     _passNumberTextController.dispose();
+    _carYearTextController.dispose();
     _locationTextController.dispose();
     super.dispose();
   }
@@ -153,6 +156,8 @@ String? selectedCarModel;
             end: Alignment.bottomCenter,
           ),
         ),
+        child: Form(
+        key: _formKey,
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 120, 20, 0),
@@ -197,11 +202,9 @@ String? selectedCarModel;
                   _emailTextController,
                 ),
                 const SizedBox(height: 20),
-                Form(
-                  key: _formKey,
-                  child: Column(
+                Column(
                     children: [
-                      reusableTextField(
+                      reusableTextFieldpassword(
                         "Enter Password",
                         Icons.lock_outlined,
                         true,
@@ -210,7 +213,7 @@ String? selectedCarModel;
 
                       ),
                       const SizedBox(height: 20),
-                      reusableTextField(
+                      reusableTextFieldpassword(
                         "Confirm Password",
                         Icons.lock_outlined,
                         true,
@@ -219,7 +222,6 @@ String? selectedCarModel;
                       ),
                     ],
                   ),
-                ),
                 
                 const SizedBox(height: 20),
                 //!Location           
@@ -298,6 +300,7 @@ String? selectedCarModel;
                         setState(() {
                           _gender = value!;
                           _genderTextController.text = value;
+
                         });
                       },
                     ),
@@ -312,30 +315,19 @@ String? selectedCarModel;
                       onChanged: (String? value) {
                         setState(() {
                           _gender = value!;
+                          _genderTextController.text = value;
+
                         });
                       },
                     ),
                   ),
                 ),
+
               ],
             ),
             const SizedBox(height: 20),
            Row(
               children: [
-                Expanded(
-                  child: ListTile(
-                    title: const Text('Driver'),
-                    leading: Radio<String>(
-                      value: 'Driver',
-                      groupValue: _User,
-                      onChanged: (String? value) {
-                        setState(() {
-                          _User = value!;
-                        });
-                      },
-                    ),
-                  ),
-                ),
                 Expanded(
                   child: ListTile(
                     title: const Text('Customer'),
@@ -345,11 +337,29 @@ String? selectedCarModel;
                       onChanged: (String? value) {
                         setState(() {
                           _User = value!;
+                          _DCTextController.text = value;
                         });
                       },
                     ),
                   ),
                 ),
+                Expanded(
+                  child: ListTile(
+                    title: const Text('Driver'),
+                    leading: Radio<String>(
+                      value: 'Driver',
+                      groupValue: _User,
+                      onChanged: (String? value) {
+                        setState(() {
+                          _User = value!;
+                          _DCTextController.text = value;
+
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                
               ],
             ),
             if (_User == 'Driver') ...[
@@ -415,6 +425,7 @@ String? selectedCarModel;
                 onChanged: (value) {
                   setState(() {
                     selectedCarYear = value;
+                    _carYearTextController.text = value!;
                   });
                 },
                 items: carYear.map((carYear) {
@@ -461,84 +472,134 @@ String? selectedCarModel;
             ],
                 //!firebase button
             const SizedBox(height: 20),
-                firebaseButton(
-                  context,
-                  "Sign Up",
-                  () {
-                    if (_formKey.currentState!.validate()) {
-                      try {
-                       
-                        FirebaseAuth.instance.createUserWithEmailAndPassword(
-                          email: _emailTextController.text,
-                          password: _passwordTextController.text,
-                        ).then((value) {
-                          print("Create New Account");
-                
-                          // Add data to Firestore
-                          firestoreService.addUsers(
-                            _emailTextController.text,
-                            _firstnameTextController.text,
-                            _lastnameTextController.text,
-                            _carptTextController.text,
-                            _governorateTextController.text,
-                            _districtTextController.text,
-                            _carModelTextController.text,
-                            _carColorTextController.text,
-                            _carMakerTextController.text,
-                            _carTypeTextController.text,
-                            _genderTextController.text,
-                            GeoPoint(
-                              double.parse(_locationTextController.text.split(', ')[0].split(': ')[1]),
-                              double.parse(_locationTextController.text.split(', ')[1].split(': ')[1])
-                            ),
-                            );
-                
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const HomeScreen(),
-                            ),
-                          );
-                        }).catchError((error) {
-                          if (error is FirebaseAuthException) {
-                            if (error.code == 'email-already-in-use') {
-                              print("The email address is already in use by another account.");
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text("The email address is already in use by another account."),
-                                ),
-                              );
-                            } else {
-                              print("Error: ${error.message}");
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text("Error: ${error.message}"),
-                                ),
-                              );
-                            }
-                          } else {
-                            print("Error: ${error.toString()}");
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Error: ${error.toString()}"),
-                              ),
-                            );
-                          }
-                        });
-                      } catch (e) {
-                        print("Error: ${e.toString()}");
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("Invalid input: ${e.toString()}"),
-                          ),
-                        );
-                      }
-                    }
-                  },
+const SizedBox(height: 20),
+firebaseButton(
+  context,
+  "Sign Up",
+  () {
+    if (_formKey.currentState!.validate()) {
+      try {
+        // Validate phone number input
+        if (_phoneNumberController.text.isEmpty) {
+          throw FormatException("Phone number cannot be empty");
+        }
+        int phoneNumber = int.parse(_phoneNumberController.text);
+
+       
+        // Validate location input
+        List<String> locationParts = _locationTextController.text.split(', ');
+        if (locationParts.length != 2) {
+          throw FormatException("Invalid location format");
+        }
+        double latitude = double.parse(locationParts[0].split(': ')[1]);
+        double longitude = double.parse(locationParts[1].split(': ')[1]);
+
+        FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _emailTextController.text,
+          password: _passwordTextController.text,
+        ).then((value) {
+          print("Create New Account");
+
+          // Add data to Firestore
+          if (_User == 'Driver') {
+             // Validate passenger number input
+        if (_passNumberTextController.text.isEmpty) {
+          throw FormatException("Passenger number cannot be empty");
+        }
+        int passengerNumber = int.parse(_passNumberTextController.text);
+
+        // Validate car year input
+        if (_carYearTextController.text.isEmpty) {
+          throw FormatException("Car year cannot be empty");
+        }
+        int carYear = int.parse(_carYearTextController.text);
+
+            firestoreService.addUsers(
+              
+              _emailTextController.text,
+              _firstnameTextController.text,
+              _lastnameTextController.text,
+              _passwordTextController.text,
+              _confirmPasswordTextController.text,
+              phoneNumber,
+              _carptTextController.text,
+              passengerNumber,
+              _governorateTextController.text,
+              _districtTextController.text,
+              _carModelTextController.text,
+              _carColorTextController.text,
+              _carMakerTextController.text,
+              _carTypeTextController.text,
+              _genderTextController.text,
+              GeoPoint(latitude, longitude),
+              carYear,
+              _DCTextController.text,
+            );
+          } else {
+             {
+            firestoreService.addUser(
+              _emailTextController.text,
+              _firstnameTextController.text,
+              _lastnameTextController.text,
+              _passwordTextController.text,
+              _confirmPasswordTextController.text,
+              phoneNumber,
+              _governorateTextController.text,
+              _districtTextController.text,
+              _genderTextController.text,
+              GeoPoint(latitude, longitude),
+              _DCTextController.text,
+            );
+          }
+          }
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const HomeScreen(),
+            ),
+          );
+        }).catchError((error) {
+          if (error is FirebaseAuthException) {
+            if (error.code == 'email-already-in-use') {
+              print("The email address is already in use by another account.");
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("The email address is already in use by another account."),
                 ),
+              );
+            } else {
+              print("Error: ${error.message}");
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Error: ${error.message}"),
+                ),
+              );
+            }
+          } else {
+            print("Error: ${error.toString()}");
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("Error: ${error.toString()}"),
+              ),
+            );
+          }
+        });
+      } catch (e) {
+        print("Error: ${e.toString()}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Invalid input: ${e.toString()}"),
+          ),
+        );
+      }
+    }
+  },
+),
               ],
             ),
           ),
+        ),
         ),
       ),
     );

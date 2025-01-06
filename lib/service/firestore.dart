@@ -6,9 +6,11 @@ class FirestoreService{
     String email,
     String Fname,
     String Lname,
-    //int phoneNumber,
+    String password,
+    String confirmPassword,
+    int phoneNumber,
     String carPT,
-    //int passNumber,
+    int passNumber,
     String governorate,
     String district,
     String carmodel,
@@ -17,15 +19,18 @@ class FirestoreService{
     String carType,
     String gender,
     GeoPoint location,
-   // int carYear,
+    int carYear,
+    String DC,
       ) async {
     await data.add({
       'Fname': Fname,
       'Lname': Lname,
       'email': email,
-      //'phoneNumber': phoneNumber,
+      'password': password,
+      'confirmPassword': confirmPassword,
+      'phoneNumber': phoneNumber,
       'carPT': carPT,
-      //'passNumber': passNumber,
+      'passNumber': passNumber,
       'governorate': governorate,
       'district': district,
       'carmodel': carmodel,
@@ -34,7 +39,37 @@ class FirestoreService{
       'carType': carType,
       'gender': gender,
       'location': location,
-      //'carYear': carYear,
+      'carYear': carYear,
+      'DC': DC,
+    });
+    return;
+  }
+   Future<void> addUser(
+    String email,
+    String Fname,
+    String Lname,
+    String password,
+    String confirmPassword,
+    int phoneNumber,
+    String governorate,
+    String district,
+    String gender,
+    GeoPoint location,
+    String DC,
+
+  ) async {
+    await data.add({
+      'email': email,
+      'Fname': Fname,
+      'Lname': Lname,
+      'password': password,
+      'confirmPassword': confirmPassword,
+      'phoneNumber': phoneNumber,
+      'governorate': governorate,
+      'district': district,
+      'gender': gender,
+      'location': location,
+      'DC': DC,
     });
     return;
   }
