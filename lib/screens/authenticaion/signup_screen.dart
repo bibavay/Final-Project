@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/reusabile_widget/reusabile_widget.dart';
 import 'package:flutter_application_4th_year_project/screens/authenticaion/home_screen.dart';
+import 'package:flutter_application_4th_year_project/screens/authenticaion/signin_screen.dart';
 import 'package:flutter_application_4th_year_project/service/firestore.dart';
 import 'package:flutter_application_4th_year_project/utils/color_utils.dart';
 import 'package:geolocator/geolocator.dart';
@@ -27,39 +29,42 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _districtTextController = TextEditingController();
   final TextEditingController _carModelTextController = TextEditingController();
   final TextEditingController _carColorTextController = TextEditingController();
-final TextEditingController _carMakerTextController = TextEditingController();
-final TextEditingController _carTypeTextController = TextEditingController();
-final TextEditingController _genderTextController = TextEditingController();
-final TextEditingController _locationTextController = TextEditingController();
-final TextEditingController _carYearTextController = TextEditingController();
-final TextEditingController _DCTextController = TextEditingController();
+  final TextEditingController _carMakerTextController = TextEditingController();
+  final TextEditingController _carTypeTextController = TextEditingController();
+  final TextEditingController _genderTextController = TextEditingController();
+  final TextEditingController _locationTextController = TextEditingController();
+  final TextEditingController _carYearTextController = TextEditingController();
+  final TextEditingController _DCTextController = TextEditingController();
   final FirestoreService firestoreService = FirestoreService();
 
   final _formKey = GlobalKey<FormState>();
 
   String _gender = 'male';
-String _User = 'Driver';
-String? selectedGovernorate;
-String? selectedDistrict;
+  String _User = 'Driver';
+  String? selectedGovernorate;
+  String? selectedDistrict;
   final List<String> governorates = ['Duhok', 'Arbil', 'Sulaymaniyah'];
   final Map<String, List<String>> districts = {
     'Duhok': ['Baroshki', 'Masike', 'Malta'],
     'Arbil': ['kuya', 'Taq Taq'],
     'Sulaymaniyah': ['Kalar', 'ranya'],
   };
-String? selectedCarType;
+  String? selectedCarType;
   final List<String> carTypes = ['Sedan', 'SUV', 'Truck', 'Coupe', 'Convertible'];
-String? selectedCarMaker;
+  String? selectedCarMaker;
   final List<String> carMaker = ['1', '2', '3', '4'];
-String? selectedCarColor;
+  String? selectedCarColor;
   final List<String> carColor = ['red', 'green', 'blue', 'yellow'];
-String? selectedCarYear;
+  String? selectedCarYear;
   final List<String> carYear = ['2010', '2011', '2012', '2013'];
-String? selectedCarModel;
+  String? selectedCarModel;
   final List<String> carModel = ['Toyota', 'Nissan'];
 
-@override
+  Timer? _emailCheckTimer;
+
+  @override
   void dispose() {
+    _emailCheckTimer?.cancel();
     _passwordTextController.dispose();
     _confirmPasswordTextController.dispose();
     _governorateTextController.dispose();
@@ -125,17 +130,33 @@ String? selectedCarModel;
     return await Geolocator.getCurrentPosition();
   }
 
+  void _startEmailVerificationCheck() {
+    _emailCheckTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
+      User? user = FirebaseAuth.instance.currentUser;
+      await user?.reload();
+      if (user != null && user.emailVerified) {
+        timer.cancel();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const HomeScreen(),
+          ),
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-       // backgroundColor: const Color.fromARGB(0, 0, 0, 0),
+        // backgroundColor: const Color.fromARGB(0, 0, 0, 0),
         elevation: 0,
         title: Text(
           "Sign Up",
           style: TextStyle(
-           // background: Paint()..color = Colors.amberAccent,
+            // background: Paint()..color = Colors.amberAccent,
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: const Color.fromARGB(255, 167, 167, 167),
@@ -157,60 +178,59 @@ String? selectedCarModel;
           ),
         ),
         child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 120, 20, 0),
-            child: Column(
-              children: <Widget>[
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: reusableTextField(
-                        "First Name",
-                        Icons.person_outline,
-                        false,
-                        _firstnameTextController,
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 120, 20, 0),
+              child: Column(
+                children: <Widget>[
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: reusableTextField(
+                          "First Name",
+                          Icons.person_outline,
+                          false,
+                          _firstnameTextController,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 20), // Adjust the width as needed
-                    Expanded(
-                      child: reusableTextField(
-                        "Last Name",
-                        Icons.person_outline,
-                        false,
-                        _lastnameTextController,
+                      const SizedBox(width: 20), // Adjust the width as needed
+                      Expanded(
+                        child: reusableTextField(
+                          "Last Name",
+                          Icons.person_outline,
+                          false,
+                          _lastnameTextController,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                 const SizedBox(height: 20),
-                reusableTextField(
-                  "Phone Number",
-                  Icons.phone_android_outlined,
-                  false,
-                 _phoneNumberController,
-                  keyboardType: TextInputType.phone, 
-                  //! lazm bheta gohrin
-                ),
-                const SizedBox(height: 20),
-                reusableTextField(
-                  "Enter Email Id",
-                  Icons.email_outlined,
-                  false,
-                  _emailTextController,
-                ),
-                const SizedBox(height: 20),
-                Column(
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  reusableTextField(
+                    "Phone Number",
+                    Icons.phone_android_outlined,
+                    false,
+                    _phoneNumberController,
+                    keyboardType: TextInputType.phone,
+                    //! lazm bheta gohrin
+                  ),
+                  const SizedBox(height: 20),
+                  reusableTextField(
+                    "Enter Email Id",
+                    Icons.email_outlined,
+                    false,
+                    _emailTextController,
+                  ),
+                  const SizedBox(height: 20),
+                  Column(
                     children: [
                       reusableTextFieldpassword(
                         "Enter Password",
                         Icons.lock_outlined,
                         true,
                         _passwordTextController,
-                      validator: _validatePassword,
-
+                        validator: _validatePassword,
                       ),
                       const SizedBox(height: 20),
                       reusableTextFieldpassword(
@@ -222,385 +242,421 @@ String? selectedCarModel;
                       ),
                     ],
                   ),
-                
-                const SizedBox(height: 20),
-                //!Location           
-                 DropdownButtonFormField<String>(
-              value: selectedGovernorate,
-              hint: Text('Select Governorate'),
-              onChanged: (value) {
-                setState(() {
-                  selectedGovernorate = value;
-                  selectedDistrict = null; // Reset district when governorate changes
-                  _governorateTextController.text = value!;
-                });
-              },
-              items: governorates.map((governorate) {
-                return DropdownMenuItem<String>(
-                  value: governorate,
-                  child: Text(governorate),
-                );
-              }).toList(),
-            ),
-            DropdownButtonFormField<String>(
-              value: selectedDistrict,
-              hint: Text('Select District'),
-              onChanged: (value) {
-                setState(() {
-                  selectedDistrict = value;
-                  _districtTextController.text = value!;
-                });
-              },
-              items: selectedGovernorate == null
-                  ? []
-                  : districts[selectedGovernorate]!.map((district) {
+                  const SizedBox(height: 20),
+                  //!Location
+                  DropdownButtonFormField<String>(
+                    value: selectedGovernorate,
+                    hint: Text('Select Governorate'),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedGovernorate = value;
+                        selectedDistrict = null; // Reset district when governorate changes
+                        _governorateTextController.text = value!;
+                      });
+                    },
+                    items: governorates.map((governorate) {
                       return DropdownMenuItem<String>(
-                        value: district,
-                        child: Text(district),
+                        value: governorate,
+                        child: Text(governorate),
                       );
                     }).toList(),
-            ),
-              SizedBox(height: 16.0),
-              //! Get Current Location Button
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () async {
-                    try {
-                      Position position = await _getCurrentLocation();
-                      print('Current location: ${position.latitude}, ${position.longitude}');
-                      _locationTextController.text = 'Lat: ${position.latitude}, Lon: ${position.longitude}';
-                    } catch (e) {
-                      print('Error: $e');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Error: $e"),
+                  ),
+                  DropdownButtonFormField<String>(
+                    value: selectedDistrict,
+                    hint: Text('Select District'),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedDistrict = value;
+                        _districtTextController.text = value!;
+                      });
+                    },
+                    items: selectedGovernorate == null
+                        ? []
+                        : districts[selectedGovernorate]!.map((district) {
+                            return DropdownMenuItem<String>(
+                              value: district,
+                              child: Text(district),
+                            );
+                          }).toList(),
+                  ),
+                  SizedBox(height: 16.0),
+                  //! Get Current Location Button
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () async {
+                      try {
+                        Position position = await _getCurrentLocation();
+                        print('Current location: ${position.latitude}, ${position.longitude}');
+                        _locationTextController.text = 'Lat: ${position.latitude}, Lon: ${position.longitude}';
+                      } catch (e) {
+                        print('Error: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("Error: $e"),
+                          ),
+                        );
+                      }
+                    },
+                    child: Text('Get Current Location'),
+                  ),
+                  const SizedBox(height: 20),
+                  // reusableTextField(
+                  //   "Current Location",
+                  //   Icons.location_on,
+                  //   false,
+                  //   _locationTextController,
+                  // ),
+                  //! gender
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ListTile(
+                          title: const Text('Male'),
+                          leading: Radio<String>(
+                            value: 'male',
+                            groupValue: _gender,
+                            onChanged: (String? value) {
+                              setState(() {
+                                _gender = value!;
+                                _genderTextController.text = value;
+                              });
+                            },
+                          ),
                         ),
-                      );
-                    }
-                  },
-                  child: Text('Get Current Location'),
-                ),
-                const SizedBox(height: 20),
-                // reusableTextField(
-                //   "Current Location",
-                //   Icons.location_on,
-                //   false,
-                //   _locationTextController,
-                // ),
-            //! gender
-            Row(
-              children: [
-                Expanded(
-                  child: ListTile(
-                    title: const Text('Male'),
-                    leading: Radio<String>(
-                      value: 'male',
-                      groupValue: _gender,
-                      onChanged: (String? value) {
+                      ),
+                      Expanded(
+                        child: ListTile(
+                          title: const Text('Female'),
+                          leading: Radio<String>(
+                            value: 'female',
+                            groupValue: _gender,
+                            onChanged: (String? value) {
+                              setState(() {
+                                _gender = value!;
+                                _genderTextController.text = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ListTile(
+                          title: const Text('Customer'),
+                          leading: Radio<String>(
+                            value: 'Customer',
+                            groupValue: _User,
+                            onChanged: (String? value) {
+                              setState(() {
+                                _User = value!;
+                                _DCTextController.text = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ListTile(
+                          title: const Text('Driver'),
+                          leading: Radio<String>(
+                            value: 'Driver',
+                            groupValue: _User,
+                            onChanged: (String? value) {
+                              setState(() {
+                                _User = value!;
+                                _DCTextController.text = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_User == 'Driver') ...[
+                    //! Car Type
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      value: selectedCarType,
+                      hint: Text('Select Car Type'),
+                      onChanged: (value) {
                         setState(() {
-                          _gender = value!;
-                          _genderTextController.text = value;
-
+                          selectedCarType = value;
+                          _carTypeTextController.text = value!;
                         });
                       },
+                      items: carTypes.map((carType) {
+                        return DropdownMenuItem<String>(
+                          value: carType,
+                          child: Text(carType),
+                        );
+                      }).toList(),
                     ),
-                  ),
-                ),
-                 Expanded(
-                  child: ListTile(
-                    title: const Text('Female'),
-                    leading: Radio<String>(
-                      value: 'female',
-                      groupValue: _gender,
-                      onChanged: (String? value) {
+                    //! Car Maker
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      value: selectedCarMaker,
+                      hint: Text('Select Car Maker'),
+                      onChanged: (value) {
                         setState(() {
-                          _gender = value!;
-                          _genderTextController.text = value;
-
+                          selectedCarMaker = value;
+                          _carMakerTextController.text = value!;
                         });
                       },
+                      items: carMaker.map((carMaker) {
+                        return DropdownMenuItem<String>(
+                          value: carMaker,
+                          child: Text(carMaker),
+                        );
+                      }).toList(),
                     ),
-                  ),
-                ),
+                    //! Car Model
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      value: selectedCarModel,
+                      hint: Text('Select Car Model'),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedCarModel = value;
+                          _carModelTextController.text = value!;
+                        });
+                      },
+                      items: carModel.map((carModel) {
+                        return DropdownMenuItem<String>(
+                          value: carModel,
+                          child: Text(carModel),
+                        );
+                      }).toList(),
+                    ),
+                    //! Car Year
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      value: selectedCarYear,
+                      hint: Text('Select Car Year'),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedCarYear = value;
+                          _carYearTextController.text = value!;
+                        });
+                      },
+                      items: carYear.map((carYear) {
+                        return DropdownMenuItem<String>(
+                          value: carYear,
+                          child: Text(carYear),
+                        );
+                      }).toList(),
+                    ),
+                    //! Car Plate Number
+                    const SizedBox(height: 20),
+                    reusableTextField(
+                      "Car Plate Number",
+                      Icons.numbers_outlined,
+                      false,
+                      _carptTextController,
+                    ),
+                    //! Car Color
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<String>(
+                      value: selectedCarColor,
+                      hint: Text('Select Car Color'),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedCarColor = value;
+                          _carColorTextController.text = value!;
+                        });
+                      },
+                      items: carColor.map((carColor) {
+                        return DropdownMenuItem<String>(
+                          value: carColor,
+                          child: Text(carColor),
+                        );
+                      }).toList(),
+                    ),
+                    //! Number of Passengers
+                    const SizedBox(height: 20),
+                    reusableTextField(
+                      "Number of Passenger",
+                      Icons.person_rounded,
+                      true,
+                      _passNumberTextController,
+                    ),
+                  ],
+                  //!firebase button
+                  const SizedBox(height: 20),
+                  const SizedBox(height: 20),
+                  firebaseButton(
+                    context,
+                    "Sign Up",
+                    () {
+                      if (_formKey.currentState!.validate()) {
+                        try {
+                          // Validate phone number input
+                          if (_phoneNumberController.text.isEmpty) {
+                            throw FormatException("Phone number cannot be empty");
+                          }
+                          int phoneNumber = int.parse(_phoneNumberController.text);
 
-              ],
+                          // Validate passenger number input
+                          if (_passNumberTextController.text.isEmpty) {
+                            throw FormatException("Passenger number cannot be empty");
+                          }
+                          int passengerNumber = int.parse(_passNumberTextController.text);
+
+                          // Validate car year input
+                          if (_carYearTextController.text.isEmpty) {
+                            throw FormatException("Car year cannot be empty");
+                          }
+                          int carYear = int.parse(_carYearTextController.text);
+
+                          // Validate location input
+                          List<String> locationParts = _locationTextController.text.split(', ');
+                          if (locationParts.length != 2) {
+                            throw FormatException("Invalid location format");
+                          }
+                          double latitude = double.parse(locationParts[0].split(': ')[1]);
+                          double longitude = double.parse(locationParts[1].split(': ')[1]);
+
+                          FirebaseAuth.instance.createUserWithEmailAndPassword(
+                            email: _emailTextController.text,
+                            password: _passwordTextController.text,
+                          ).then((value) async {
+                            print("Create New Account");
+
+                            // Send email verification
+                            User? user = FirebaseAuth.instance.currentUser;
+                            if (user != null && !user.emailVerified) {
+                              await user.sendEmailVerification();
+                              print("Verification email sent");
+
+                              // Show a message to the user
+                              showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: Text("Email Verification"),
+                                  content: Text("A verification email has been sent. Please verify your email before proceeding."),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: Text("OK"),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+
+                              // Start checking for email verification
+                              _startEmailVerificationCheck();
+                            }
+
+                            // Add data to Firestore
+                            if (_User == 'Driver') {
+                              firestoreService.addDriver(
+                                _emailTextController.text,
+                                _firstnameTextController.text,
+                                _lastnameTextController.text,
+                                _passwordTextController.text,
+                                _confirmPasswordTextController.text,
+                                phoneNumber,
+                                _carptTextController.text,
+                                passengerNumber,
+                                _governorateTextController.text,
+                                _districtTextController.text,
+                                _carModelTextController.text,
+                                _carColorTextController.text,
+                                _carMakerTextController.text,
+                                _carTypeTextController.text,
+                                _genderTextController.text,
+                                GeoPoint(latitude, longitude),
+                                carYear,
+                                _DCTextController.text,
+                              );
+                            } else {
+                              firestoreService.addCustomer(
+                                _emailTextController.text,
+                                _firstnameTextController.text,
+                                _lastnameTextController.text,
+                                _passwordTextController.text,
+                                _confirmPasswordTextController.text,
+                                phoneNumber,
+                                _governorateTextController.text,
+                                _districtTextController.text,
+                                _genderTextController.text,
+                                GeoPoint(latitude, longitude),
+                                _DCTextController.text,
+                              );
+                            }
+                          }).catchError((error) {
+                            _handleFirebaseError(error, context);
+                          });
+                        } catch (e) {
+                          print("Error: ${e.toString()}");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("Invalid input: ${e.toString()}"),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
-           Row(
-              children: [
-                Expanded(
-                  child: ListTile(
-                    title: const Text('Customer'),
-                    leading: Radio<String>(
-                      value: 'Customer',
-                      groupValue: _User,
-                      onChanged: (String? value) {
-                        setState(() {
-                          _User = value!;
-                          _DCTextController.text = value;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: ListTile(
-                    title: const Text('Driver'),
-                    leading: Radio<String>(
-                      value: 'Driver',
-                      groupValue: _User,
-                      onChanged: (String? value) {
-                        setState(() {
-                          _User = value!;
-                          _DCTextController.text = value;
-
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                
-              ],
-            ),
-            if (_User == 'Driver') ...[
-              //! Car Type
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                value: selectedCarType,
-                hint: Text('Select Car Type'),
-                onChanged: (value) {
-                  setState(() {
-                    selectedCarType = value;
-                    _carTypeTextController.text = value!;
-                  });
-                },
-                items: carTypes.map((carType) {
-                  return DropdownMenuItem<String>(
-                    value: carType,
-                    child: Text(carType),
-                  );
-                }).toList(),
-              ),
-              //! Car Maker
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                value: selectedCarMaker,
-                hint: Text('Select Car Maker'),
-                onChanged: (value) {
-                  setState(() {
-                    selectedCarMaker = value;
-                    _carMakerTextController.text = value!;
-                  });
-                },
-                items: carMaker.map((carMaker) {
-                  return DropdownMenuItem<String>(
-                    value: carMaker,
-                    child: Text(carMaker),
-                  );
-                }).toList(),
-              ),
-              //! Car Model
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                value: selectedCarModel,
-                hint: Text('Select Car Model'),
-                onChanged: (value) {
-                  setState(() {
-                    selectedCarModel = value;
-                    _carModelTextController.text = value!;
-                  });
-                },
-                items: carModel.map((carModel) {
-                  return DropdownMenuItem<String>(
-                    value: carModel,
-                    child: Text(carModel),
-                  );
-                }).toList(),
-              ),
-              //! Car Year
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                value: selectedCarYear,
-                hint: Text('Select Car Year'),
-                onChanged: (value) {
-                  setState(() {
-                    selectedCarYear = value;
-                    _carYearTextController.text = value!;
-                  });
-                },
-                items: carYear.map((carYear) {
-                  return DropdownMenuItem<String>(
-                    value: carYear,
-                    child: Text(carYear),
-                  );
-                }).toList(),
-              ),
-              //! Car Plate Number
-              const SizedBox(height: 20),
-              reusableTextField(
-                "Car Plate Number",
-                Icons.numbers_outlined,
-                false,
-                _carptTextController,
-              ),
-              //! Car Color
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                value: selectedCarColor,
-                hint: Text('Select Car Color'),
-                onChanged: (value) {
-                  setState(() {
-                    selectedCarColor = value;
-                    _carColorTextController.text = value!;
-                  });
-                },
-                items: carColor.map((carColor) {
-                  return DropdownMenuItem<String>(
-                    value: carColor,
-                    child: Text(carColor),
-                  );
-                }).toList(),
-              ),
-              //! Number of Passengers
-              const SizedBox(height: 20),
-              reusableTextField(
-                "Number of Passenger",
-                Icons.person_rounded,
-                true,
-                _passNumberTextController,
-              ),
-            ],
-                //!firebase button
-            const SizedBox(height: 20),
-const SizedBox(height: 20),
-firebaseButton(
-  context,
-  "Sign Up",
-  () {
-    if (_formKey.currentState!.validate()) {
-      try {
-        // Validate phone number input
-        if (_phoneNumberController.text.isEmpty) {
-          throw FormatException("Phone number cannot be empty");
-        }
-        int phoneNumber = int.parse(_phoneNumberController.text);
-
-       
-        // Validate location input
-        List<String> locationParts = _locationTextController.text.split(', ');
-        if (locationParts.length != 2) {
-          throw FormatException("Invalid location format");
-        }
-        double latitude = double.parse(locationParts[0].split(': ')[1]);
-        double longitude = double.parse(locationParts[1].split(': ')[1]);
-
-        FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailTextController.text,
-          password: _passwordTextController.text,
-        ).then((value) {
-          print("Create New Account");
-
-          // Add data to Firestore
-          if (_User == 'Driver') {
-             // Validate passenger number input
-        if (_passNumberTextController.text.isEmpty) {
-          throw FormatException("Passenger number cannot be empty");
-        }
-        int passengerNumber = int.parse(_passNumberTextController.text);
-
-        // Validate car year input
-        if (_carYearTextController.text.isEmpty) {
-          throw FormatException("Car year cannot be empty");
-        }
-        int carYear = int.parse(_carYearTextController.text);
-
-            firestoreService.addUsers(
-              
-              _emailTextController.text,
-              _firstnameTextController.text,
-              _lastnameTextController.text,
-              _passwordTextController.text,
-              _confirmPasswordTextController.text,
-              phoneNumber,
-              _carptTextController.text,
-              passengerNumber,
-              _governorateTextController.text,
-              _districtTextController.text,
-              _carModelTextController.text,
-              _carColorTextController.text,
-              _carMakerTextController.text,
-              _carTypeTextController.text,
-              _genderTextController.text,
-              GeoPoint(latitude, longitude),
-              carYear,
-              _DCTextController.text,
-            );
-          } else {
-             {
-            firestoreService.addUser(
-              _emailTextController.text,
-              _firstnameTextController.text,
-              _lastnameTextController.text,
-              _passwordTextController.text,
-              _confirmPasswordTextController.text,
-              phoneNumber,
-              _governorateTextController.text,
-              _districtTextController.text,
-              _genderTextController.text,
-              GeoPoint(latitude, longitude),
-              _DCTextController.text,
-            );
-          }
-          }
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const HomeScreen(),
-            ),
-          );
-        }).catchError((error) {
-          if (error is FirebaseAuthException) {
-            if (error.code == 'email-already-in-use') {
-              print("The email address is already in use by another account.");
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("The email address is already in use by another account."),
-                ),
-              );
-            } else {
-              print("Error: ${error.message}");
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("Error: ${error.message}"),
-                ),
-              );
-            }
-          } else {
-            print("Error: ${error.toString()}");
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("Error: ${error.toString()}"),
-              ),
-            );
-          }
-        });
-      } catch (e) {
-        print("Error: ${e.toString()}");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Invalid input: ${e.toString()}"),
           ),
-        );
-      }
+        ),
+      ),
+    );
+  }
+}
+
+// Helper function to validate and parse integers
+int _validateAndParseInt(String input, String fieldName) {
+  if (input.isEmpty) {
+    throw FormatException("$fieldName cannot be empty");
+  }
+  return int.parse(input);
+}
+
+// Helper function to validate and parse location
+GeoPoint _validateAndParseLocation(String input) {
+  List<String> locationParts = input.split(', ');
+  if (locationParts.length != 2) {
+    throw FormatException("Invalid location format");
+  }
+  double latitude = double.parse(locationParts[0].split(': ')[1]);
+  double longitude = double.parse(locationParts[1].split(': ')[1]);
+  return GeoPoint(latitude, longitude);
+}
+
+// Helper function to handle Firebase errors
+void _handleFirebaseError(dynamic error, BuildContext context) {
+  if (error is FirebaseAuthException) {
+    if (error.code == 'email-already-in-use') {
+      print("The email address is already in use by another account.");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("The email address is already in use by another account."),
+        ),
+      );
+    } else {
+      print("Error: ${error.message}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error: ${error.message}"),
+        ),
+      );
     }
-  },
-),
-              ],
-            ),
-          ),
-        ),
-        ),
+  } else {
+    print("Error: ${error.toString()}");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Error: ${error.toString()}"),
       ),
     );
   }

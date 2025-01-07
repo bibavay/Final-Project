@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirestoreService{
   final CollectionReference data = FirebaseFirestore.instance.collection('User');
-  Future<void> addUsers(
+  Future<void> addDriver(
     String email,
     String Fname,
     String Lname,
@@ -44,7 +44,7 @@ class FirestoreService{
     });
     return;
   }
-   Future<void> addUser(
+   Future<void> addCustomer(
     String email,
     String Fname,
     String Lname,
