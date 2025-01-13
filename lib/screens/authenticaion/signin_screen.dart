@@ -90,19 +90,20 @@ class _SigninScreenState extends State<SigninScreen> {
   }
 
   Widget forgetPassword(BuildContext context) {
-    return Container(
-      width: MediaQuery.of(context).size.width,
-      height: 35,
-      alignment: Alignment.bottomRight,
-      child: TextButton(
-        child: const Text(
-          "Forgot Password?",
-          style: TextStyle(color: Colors.white70),
-          textAlign: TextAlign.right,
-        ),
-        onPressed: () => Navigator.push(
-            context, MaterialPageRoute(builder: (context) => const ResetPassword())),
+  return Container(
+    width: MediaQuery.of(context).size.width,
+    height: 35,
+    alignment: Alignment.bottomRight,
+    child: TextButton(
+      child: const Text(
+        "Forgot Password?",
+        style: TextStyle(color: Colors.black),
+        textAlign: TextAlign.right,
       ),
-    );
-  }
+      onPressed: () => Navigator.push(
+          context, MaterialPageRoute(builder: (context) => const ResetPassword())),
+    ),
+  );
+}
+
 }

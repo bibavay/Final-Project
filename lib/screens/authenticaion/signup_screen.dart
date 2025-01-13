@@ -3,8 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/reusabile_widget/reusabile_widget.dart';
-import 'package:flutter_application_4th_year_project/screens/authenticaion/home_screen.dart';
-import 'package:flutter_application_4th_year_project/screens/authenticaion/signin_screen.dart';
+import 'package:flutter_application_4th_year_project/screens/Customers/Customers.dart';
+import 'package:flutter_application_4th_year_project/screens/Drivers/Driverdashboard.dart';
 import 'package:flutter_application_4th_year_project/service/firestore.dart';
 import 'package:flutter_application_4th_year_project/utils/color_utils.dart';
 import 'package:geolocator/geolocator.dart';
@@ -130,22 +130,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return await Geolocator.getCurrentPosition();
   }
 
-  void _startEmailVerificationCheck() {
-    _emailCheckTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
-      User? user = FirebaseAuth.instance.currentUser;
-      await user?.reload();
-      if (user != null && user.emailVerified) {
-        timer.cancel();
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const HomeScreen(),
-          ),
-        );
+ void _startEmailVerificationCheck() {
+  FirebaseAuth.instance.userChanges().listen((User? user) async {
+    if (user != null) {
+      await user.reload(); // Refresh user data from Firebase
+      if (user.emailVerified) {
+        // Navigate to the respective dashboard based on user type
+        if (_User == 'Customer') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CustomerDashboard(),
+            ),
+          );
+        } else if (_User == 'Driver') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const DriverDashboard(),
+            ),
+          );
+        }
       }
-    });
-  }
-
+    }
+  });
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -499,18 +508,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           }
                           int phoneNumber = int.parse(_phoneNumberController.text);
 
-                          // Validate passenger number input
-                          if (_passNumberTextController.text.isEmpty) {
-                            throw FormatException("Passenger number cannot be empty");
-                          }
-                          int passengerNumber = int.parse(_passNumberTextController.text);
-
-                          // Validate car year input
-                          if (_carYearTextController.text.isEmpty) {
-                            throw FormatException("Car year cannot be empty");
-                          }
-                          int carYear = int.parse(_carYearTextController.text);
-
                           // Validate location input
                           List<String> locationParts = _locationTextController.text.split(', ');
                           if (locationParts.length != 2) {
@@ -549,13 +546,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 );
                               },
                             );
-
                               // Start checking for email verification
                               _startEmailVerificationCheck();
                             }
-
                             // Add data to Firestore
-                            if (_User == 'Driver') {
+                        if (_User == 'Driver') {
+                              // Validate passenger number input
+                          if (_passNumberTextController.text.isEmpty) {
+                            throw FormatException("Passenger number cannot be empty");
+                          }
+                          int passengerNumber = int.parse(_passNumberTextController.text);
+
+                          // Validate car year input
+                          if (_carYearTextController.text.isEmpty) {
+                            throw FormatException("Car year cannot be empty");
+                          }
+                          int carYear = int.parse(_carYearTextController.text);
                               firestoreService.addDriver(
                                 _emailTextController.text,
                                 _firstnameTextController.text,
@@ -575,7 +581,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 GeoPoint(latitude, longitude),
                                 carYear,
                                 _DCTextController.text,
-                              );
+                              
+                              ).then((_) {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => DriverDashboard(), // Replace with your Driver Dashboard page
+                                  ),
+                                );
+                              });
                             } else {
                               firestoreService.addCustomer(
                                 _emailTextController.text,
@@ -583,14 +597,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 _lastnameTextController.text,
                                 _passwordTextController.text,
                                 _confirmPasswordTextController.text,
-                                phoneNumber,
+                                _validateAndParseInt(_phoneNumberController.text, "Phone number"),
                                 _governorateTextController.text,
                                 _districtTextController.text,
                                 _genderTextController.text,
-                                GeoPoint(latitude, longitude),
+                                _validateAndParseLocation(_locationTextController.text),
                                 _DCTextController.text,
-                              );
+                              ).then((_) {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CustomerDashboard(), // Replace with your Customer Dashboard page
+                                  ),
+                                );
+                              });
                             }
+
                           }).catchError((error) {
                             _handleFirebaseError(error, context);
                           });
