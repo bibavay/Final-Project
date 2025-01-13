@@ -3,8 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/reusabile_widget/reusabile_widget.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/Customers.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/Driverdashboard.dart';
+import 'package:flutter_application_4th_year_project/screens/Customers/Cemailverification.dart';
+import 'package:flutter_application_4th_year_project/screens/Drivers/Demailverification.dart';
 import 'package:flutter_application_4th_year_project/service/firestore.dart';
 import 'package:flutter_application_4th_year_project/utils/color_utils.dart';
 import 'package:geolocator/geolocator.dart';
@@ -130,31 +130,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return await Geolocator.getCurrentPosition();
   }
 
- void _startEmailVerificationCheck() {
-  FirebaseAuth.instance.userChanges().listen((User? user) async {
-    if (user != null) {
-      await user.reload(); // Refresh user data from Firebase
-      if (user.emailVerified) {
-        // Navigate to the respective dashboard based on user type
-        if (_User == 'Customer') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CustomerDashboard(),
-            ),
-          );
-        } else if (_User == 'Driver') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const DriverDashboard(),
-            ),
-          );
-        }
-      }
-    }
-  });
-}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -527,27 +502,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             if (user != null && !user.emailVerified) {
                               await user.sendEmailVerification();
                               print("Verification email sent");
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Verification email sent"),
+                                ),
+                              );
+                              
 
-                              // Show a message to the user
-                              showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  title: Text("Email Verification"),
-                                  content: Text("A verification email has been sent. Please verify your email before proceeding."),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                      },
-                                      child: Text("OK"),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
                               // Start checking for email verification
-                              _startEmailVerificationCheck();
                             }
                             // Add data to Firestore
                         if (_User == 'Driver') {
@@ -562,6 +524,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             throw FormatException("Car year cannot be empty");
                           }
                           int carYear = int.parse(_carYearTextController.text);
+
                               firestoreService.addDriver(
                                 _emailTextController.text,
                                 _firstnameTextController.text,
@@ -586,7 +549,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => DriverDashboard(), // Replace with your Driver Dashboard page
+                                    builder: (context) => DEmailverify(), // Replace with your Driver Dashboard page
                                   ),
                                 );
                               });
@@ -603,11 +566,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 _genderTextController.text,
                                 _validateAndParseLocation(_locationTextController.text),
                                 _DCTextController.text,
+
                               ).then((_) {
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => CustomerDashboard(), // Replace with your Customer Dashboard page
+                                    builder: (context) => CEmailverify(), // Replace with your Customer Dashboard page
                                   ),
                                 );
                               });

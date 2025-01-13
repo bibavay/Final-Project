@@ -33,7 +33,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
             ),
             const SizedBox(height: 20,),
 
-              ElevatedButton(
+            ElevatedButton(
               onPressed: () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const DHistory()));
               },
@@ -41,7 +41,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
             ),
             const SizedBox(height: 20,),
 
-              ElevatedButton(
+          ElevatedButton(
               onPressed: () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const Dactive()));
               },
@@ -49,7 +49,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
             ),
             const SizedBox(height: 20,),
 
-            ElevatedButton(
+          ElevatedButton(
           child: const Text("Logout"),
           onPressed: () {
             FirebaseAuth.instance.signOut().then((Value){
