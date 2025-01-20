@@ -22,7 +22,7 @@ Widget reusableTextFieldpassword(String hintText, IconData icon, bool isPassword
       prefixIcon: Icon(icon),
       hintText: hintText,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
       ),
     ),
   );

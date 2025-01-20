@@ -61,6 +61,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final List<String> carModel = ['Toyota', 'Nissan'];
 
   Timer? _emailCheckTimer;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
   @override
   void dispose() {
@@ -128,6 +130,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
     // When we reach here, permissions are granted and we can
     // continue accessing the position of the device.
     return await Geolocator.getCurrentPosition();
+  }
+
+  Widget reusableTextFieldpassword(
+      String hintText, IconData icon, bool isPasswordType, TextEditingController controller,
+      {String? Function(String?)? validator, bool isPasswordVisible = false, VoidCallback? toggleVisibility}) {
+    return TextFormField(
+      controller: controller,
+      obscureText: isPasswordType && !isPasswordVisible,
+      validator: validator,
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon),
+        hintText: hintText,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        suffixIcon: isPasswordType
+            ? IconButton(
+                icon: Icon(
+                  isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: toggleVisibility,
+              )
+            : null,
+      ),
+    );
   }
 
   @override
@@ -215,6 +242,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         true,
                         _passwordTextController,
                         validator: _validatePassword,
+                        isPasswordVisible: _isPasswordVisible,
+                        toggleVisibility: () {
+                          setState(() {
+                            _isPasswordVisible = !_isPasswordVisible;
+                          });
+                        },
                       ),
                       const SizedBox(height: 20),
                       reusableTextFieldpassword(
@@ -223,6 +256,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         true,
                         _confirmPasswordTextController,
                         validator: _validateConfirmPassword,
+                        isPasswordVisible: _isConfirmPasswordVisible,
+                        toggleVisibility: () {
+                          setState(() {
+                            _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                          });
+                        },
                       ),
                     ],
                   ),
@@ -433,14 +472,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         );
                       }).toList(),
                     ),
-                    //! Car Plate Number
-                    const SizedBox(height: 20),
-                    reusableTextField(
-                      "Car Plate Number",
-                      Icons.numbers_outlined,
-                      false,
-                      _carptTextController,
-                    ),
                     //! Car Color
                     const SizedBox(height: 20),
                     DropdownButtonFormField<String>(
@@ -458,6 +489,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           child: Text(carColor),
                         );
                       }).toList(),
+                    ),
+                     //! Car Plate Number
+                    const SizedBox(height: 20),
+                    reusableTextField(
+                      "Car Plate Number",
+                      Icons.numbers_outlined,
+                      false,
+                      _carptTextController,
                     ),
                     //! Number of Passengers
                     const SizedBox(height: 20),

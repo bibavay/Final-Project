@@ -99,7 +99,7 @@ class _EditProfileState extends State<EditProfile> {
                 true,
                 _passwordTextController,
               ),
-                            const SizedBox(height: 50),
+              const SizedBox(height: 50),
 
               SizedBox(
                 width: double.infinity,
