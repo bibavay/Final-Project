@@ -196,113 +196,257 @@ class _SignUpScreenState extends State<SignUpScreen> {
               child: Column(
                 children: <Widget>[
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: reusableTextField(
-                          "First Name",
-                          Icons.person_outline,
-                          false,
-                          _firstnameTextController,
-                        ),
-                      ),
-                      const SizedBox(width: 20), // Adjust the width as needed
-                      Expanded(
-                        child: reusableTextField(
-                          "Last Name",
-                          Icons.person_outline,
-                          false,
-                          _lastnameTextController,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  reusableTextField(
-                    "Phone Number",
-                    Icons.phone_android_outlined,
-                    false,
-                    _phoneNumberController,
-                    keyboardType: TextInputType.phone,
-                    //! lazm bheta gohrin
-                  ),
-                  const SizedBox(height: 20),
-                  reusableTextField(
-                    "Enter Email Id",
-                    Icons.email_outlined,
-                    false,
-                    _emailTextController,
-                  ),
-                  const SizedBox(height: 20),
-                  Column(
-                    children: [
-                      reusableTextFieldpassword(
-                        "Enter Password",
-                        Icons.lock_outlined,
-                        true,
-                        _passwordTextController,
-                        validator: _validatePassword,
-                        isPasswordVisible: _isPasswordVisible,
-                        toggleVisibility: () {
-                          setState(() {
-                            _isPasswordVisible = !_isPasswordVisible;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      reusableTextFieldpassword(
-                        "Confirm Password",
-                        Icons.lock_outlined,
-                        true,
-                        _confirmPasswordTextController,
-                        validator: _validateConfirmPassword,
-                        isPasswordVisible: _isConfirmPasswordVisible,
-                        toggleVisibility: () {
-                          setState(() {
-                            _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
+                 Column(
+  children: [
+    // Name Fields Row
+    Row(
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: _firstnameTextController,
+            decoration: InputDecoration(
+              labelText: 'First Name',
+              floatingLabelBehavior: FloatingLabelBehavior.auto,
+              prefixIcon: Icon(Icons.person_outline),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.blue, width: 2),
+              ),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+            ),
+            validator: (value) => value?.isEmpty ?? true ? 'Please enter first name' : null,
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: TextFormField(
+            controller: _lastnameTextController,
+            decoration: InputDecoration(
+              labelText: 'Last Name',
+              floatingLabelBehavior: FloatingLabelBehavior.auto,
+              prefixIcon: Icon(Icons.person_outline),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.blue, width: 2),
+              ),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+            ),
+            validator: (value) => value?.isEmpty ?? true ? 'Please enter last name' : null,
+          ),
+        ),
+      ],
+    ),
+    const SizedBox(height: 20),
+    
+    // Phone Number Field
+    TextFormField(
+      controller: _phoneNumberController,
+      keyboardType: TextInputType.phone,
+      decoration: InputDecoration(
+        labelText: 'Phone Number',
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        prefixIcon: Icon(Icons.phone_android_outlined),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.blue, width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+      validator: (value) => value?.isEmpty ?? true ? 'Please enter phone number' : null,
+    ),
+    const SizedBox(height: 20),
+    
+    // Email Field  
+    TextFormField(
+      controller: _emailTextController,
+      keyboardType: TextInputType.emailAddress,
+      decoration: InputDecoration(
+        labelText: 'Email',
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        prefixIcon: Icon(Icons.email_outlined),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.blue, width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+      validator: (value) {
+        if (value?.isEmpty ?? true) return 'Please enter email';
+        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
+          return 'Please enter a valid email';
+        }
+        return null;
+      },
+    ),
+    const SizedBox(height: 20),
+    
+    // Password Fields
+    TextFormField(
+      controller: _passwordTextController,
+      obscureText: !_isPasswordVisible,
+      decoration: InputDecoration(
+        labelText: 'Password',
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        prefixIcon: Icon(Icons.lock_outline),
+        suffixIcon: IconButton(
+          icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off),
+          onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.blue, width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+      validator: _validatePassword,
+    ),
+    const SizedBox(height: 20),
+    
+    // Confirm Password Field
+    TextFormField(
+      controller: _confirmPasswordTextController,
+      obscureText: !_isConfirmPasswordVisible,
+      decoration: InputDecoration(
+        labelText: 'Confirm Password',
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        prefixIcon: Icon(Icons.lock_outline),
+        suffixIcon: IconButton(
+          icon: Icon(_isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off),
+          onPressed: () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.blue, width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+      validator: _validateConfirmPassword,
+    ),
+  ],
+),
                   const SizedBox(height: 20),
                   //!Location
-                  DropdownButtonFormField<String>(
-                    value: selectedGovernorate,
-                    hint: Text('Select Governorate'),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedGovernorate = value;
-                        selectedDistrict = null; // Reset district when governorate changes
-                        _governorateTextController.text = value!;
-                      });
-                    },
-                    items: governorates.map((governorate) {
-                      return DropdownMenuItem<String>(
-                        value: governorate,
-                        child: Text(governorate),
-                      );
-                    }).toList(),
-                  ),
-                  DropdownButtonFormField<String>(
-                    value: selectedDistrict,
-                    hint: Text('Select District'),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedDistrict = value;
-                        _districtTextController.text = value!;
-                      });
-                    },
-                    items: selectedGovernorate == null
-                        ? []
-                        : districts[selectedGovernorate]!.map((district) {
-                            return DropdownMenuItem<String>(
-                              value: district,
-                              child: Text(district),
-                            );
-                          }).toList(),
-                  ),
-                  SizedBox(height: 16.0),
+                  TextFormField(
+  controller: _governorateTextController,
+  decoration: InputDecoration(
+    labelText: 'Governorate',
+    hintText: 'Select Governorate',
+    prefixIcon: Icon(Icons.location_city),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+    ),
+    filled: true,
+        fillColor: Colors.grey.shade50,
+    suffixIcon: PopupMenuButton<String>(
+      icon: Icon(Icons.arrow_drop_down),
+      onSelected: (String value) {
+        setState(() {
+          selectedGovernorate = value;
+          selectedDistrict = null;
+          _governorateTextController.text = value;
+          _districtTextController.clear();
+        });
+      },
+      itemBuilder: (context) => governorates
+          .map((governorate) => PopupMenuItem<String>(
+                value: governorate,
+                child: Text(governorate),
+              ))
+          .toList(),
+    ),
+  ),
+  validator: (value) => value?.isEmpty ?? true ? 'Please select governorate' : null,
+),
+const SizedBox(height: 20),
+TextFormField(
+  controller: _districtTextController,
+  decoration: InputDecoration(
+    labelText: 'District',
+    hintText: selectedGovernorate == null 
+        ? 'Select governorate first' 
+        : 'Select district',
+    prefixIcon: Icon(Icons.location_on),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+    ),
+    filled: true,
+        fillColor: Colors.grey.shade50,
+    suffixIcon: PopupMenuButton<String>(
+      icon: Icon(Icons.arrow_drop_down),
+      enabled: selectedGovernorate != null,
+      onSelected: (String value) {
+        setState(() {
+          selectedDistrict = value;
+          _districtTextController.text = value;
+        });
+      },
+      itemBuilder: (context) => selectedGovernorate == null
+          ? []
+          : districts[selectedGovernorate]!
+              .map((district) => PopupMenuItem<String>(
+                    value: district,
+                    child: Text(district),
+                  ))
+              .toList(),
+    ),
+  ),
+  validator: (value) => value?.isEmpty ?? true ? 'Please select district' : null,
+  enabled: selectedGovernorate != null,
+),SizedBox(height: 16.0),
                   //! Get Current Location Button
                   const SizedBox(height: 20),
                   ElevatedButton(
@@ -330,181 +474,300 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   //   _locationTextController,
                   // ),
                   //! gender
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ListTile(
-                          title: const Text('Male'),
-                          leading: Radio<String>(
-                            value: 'male',
-                            groupValue: _gender,
-                            onChanged: (String? value) {
-                              setState(() {
-                                _gender = value!;
-                                _genderTextController.text = value;
-                              });
-                            },
-                          ),
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<String>(
+                    value: _gender,
+                    decoration: InputDecoration(
+                      labelText: 'Gender',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.blue, width: 2),
+                      ),
+                      filled: true,
+        fillColor: Colors.grey.shade50,
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'male',
+                        child: Row(
+                          children: [
+                            Icon(Icons.male),
+                            SizedBox(width: 8),
+                            Text('Male'),
+                          ],
                         ),
                       ),
-                      Expanded(
-                        child: ListTile(
-                          title: const Text('Female'),
-                          leading: Radio<String>(
-                            value: 'female',
-                            groupValue: _gender,
-                            onChanged: (String? value) {
-                              setState(() {
-                                _gender = value!;
-                                _genderTextController.text = value;
-                              });
-                            },
-                          ),
+                      DropdownMenuItem(
+                        value: 'female',
+                        child: Row(
+                          children: [
+                            Icon(Icons.female),
+                            SizedBox(width: 8),
+                            Text('Female'),
+                          ],
                         ),
                       ),
                     ],
+                    onChanged: (String? value) {
+                      setState(() {
+                        _gender = value!;
+                        _genderTextController.text = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select gender';
+                      }
+                      return null;
+                    },
+                  ),
+                  //! User Type
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<String>(
+                    value: _User,
+                    decoration: InputDecoration(
+                      labelText: 'User Type',
+                      prefixIcon: Icon(Icons.person_pin_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'Customer',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person),
+                            SizedBox(width: 8),
+                            Text('Customer'),
+                          ],
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Driver',
+                        child: Row(
+                          children: [
+                            Icon(Icons.drive_eta),
+                            SizedBox(width: 8),
+                            Text('Driver'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    onChanged: (String? value) {
+                      setState(() {
+                        _User = value!;
+                        _DCTextController.text = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select user type';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ListTile(
-                          title: const Text('Customer'),
-                          leading: Radio<String>(
-                            value: 'Customer',
-                            groupValue: _User,
-                            onChanged: (String? value) {
-                              setState(() {
-                                _User = value!;
-                                _DCTextController.text = value;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: ListTile(
-                          title: const Text('Driver'),
-                          leading: Radio<String>(
-                            value: 'Driver',
-                            groupValue: _User,
-                            onChanged: (String? value) {
-                              setState(() {
-                                _User = value!;
-                                _DCTextController.text = value;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                   if (_User == 'Driver') ...[
                     //! Car Type
                     const SizedBox(height: 20),
-                    DropdownButtonFormField<String>(
-                      value: selectedCarType,
-                      hint: Text('Select Car Type'),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedCarType = value;
-                          _carTypeTextController.text = value!;
-                        });
-                      },
-                      items: carTypes.map((carType) {
-                        return DropdownMenuItem<String>(
-                          value: carType,
-                          child: Text(carType),
-                        );
-                      }).toList(),
+                    TextFormField(
+                      controller: _carTypeTextController,
+                      decoration: InputDecoration(
+                        labelText: 'Car Type',
+                        hintText: 'Select or enter car type',
+                        prefixIcon: Icon(Icons.directions_car),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        suffixIcon: PopupMenuButton<String>(
+                          icon: Icon(Icons.arrow_drop_down),
+                          onSelected: (String value) {
+                            setState(() {
+                              selectedCarType = value;
+                              _carTypeTextController.text = value;
+                            });
+                          },
+                          itemBuilder: (context) => carTypes.map((type) => 
+                            PopupMenuItem(value: type, child: Text(type))
+                          ).toList(),
+                        ),
+                        filled: true,
+                         fillColor: Colors.grey.shade50,
+                      ),
+                      validator: (value) => value?.isEmpty ?? true ? 'Please enter car type' : null,
                     ),
+
                     //! Car Maker
                     const SizedBox(height: 20),
-                    DropdownButtonFormField<String>(
-                      value: selectedCarMaker,
-                      hint: Text('Select Car Maker'),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedCarMaker = value;
-                          _carMakerTextController.text = value!;
-                        });
-                      },
-                      items: carMaker.map((carMaker) {
-                        return DropdownMenuItem<String>(
-                          value: carMaker,
-                          child: Text(carMaker),
-                        );
-                      }).toList(),
+                    TextFormField(
+                      controller: _carMakerTextController,
+                      decoration: InputDecoration(
+                        labelText: 'Car Maker',
+                        hintText: 'Select or enter car maker',
+                        prefixIcon: Icon(Icons.factory),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        suffixIcon: PopupMenuButton<String>(
+                          icon: Icon(Icons.arrow_drop_down),
+                          onSelected: (String value) {
+                            setState(() {
+                              selectedCarMaker = value;
+                              _carMakerTextController.text = value;
+                            });
+                          },
+                          itemBuilder: (context) => carMaker.map((maker) => 
+                            PopupMenuItem(value: maker, child: Text(maker))
+                          ).toList(),
+                        ),
+                        filled: true,
+                         fillColor: Colors.grey.shade50,
+                      ),
+                      validator: (value) => value?.isEmpty ?? true ? 'Please enter car maker' : null,
                     ),
+
                     //! Car Model
                     const SizedBox(height: 20),
-                    DropdownButtonFormField<String>(
-                      value: selectedCarModel,
-                      hint: Text('Select Car Model'),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedCarModel = value;
-                          _carModelTextController.text = value!;
-                        });
-                      },
-                      items: carModel.map((carModel) {
-                        return DropdownMenuItem<String>(
-                          value: carModel,
-                          child: Text(carModel),
-                        );
-                      }).toList(),
+                    TextFormField(
+                      controller: _carModelTextController,
+                      decoration: InputDecoration(
+                        labelText: 'Car Model',
+                        hintText: 'Select or enter car model',
+                        prefixIcon: Icon(Icons.car_rental),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        suffixIcon: PopupMenuButton<String>(
+                          icon: Icon(Icons.arrow_drop_down),
+                          onSelected: (String value) {
+                            setState(() {
+                              selectedCarModel = value;
+                              _carModelTextController.text = value;
+                            });
+                          },
+                          itemBuilder: (context) => carModel.map((model) => 
+                            PopupMenuItem(value: model, child: Text(model))
+                          ).toList(),
+                        ),
+                        filled: true,
+                         fillColor: Colors.grey.shade50,
+                      ),
+                      validator: (value) => value?.isEmpty ?? true ? 'Please enter car model' : null,
                     ),
+
                     //! Car Year
                     const SizedBox(height: 20),
-                    DropdownButtonFormField<String>(
-                      value: selectedCarYear,
-                      hint: Text('Select Car Year'),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedCarYear = value;
-                          _carYearTextController.text = value!;
-                        });
+                    TextFormField(
+                      controller: _carYearTextController,
+                      decoration: InputDecoration(
+                        labelText: 'Car Year',
+                        hintText: 'Select or enter car year',
+                        prefixIcon: Icon(Icons.calendar_today),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        suffixIcon: PopupMenuButton<String>(
+                          icon: Icon(Icons.arrow_drop_down),
+                          onSelected: (String value) {
+                            setState(() {
+                              selectedCarYear = value;
+                              _carYearTextController.text = value;
+                            });
+                          },
+                          itemBuilder: (context) => carYear.map((year) => 
+                            PopupMenuItem(value: year, child: Text(year))
+                          ).toList(),
+                        ),
+                        filled: true,
+                         fillColor: Colors.grey.shade50,
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value?.isEmpty ?? true) return 'Please enter car year';
+                        int? year = int.tryParse(value!);
+                        if (year == null || year < 1900 || year > DateTime.now().year) {
+                          return 'Please enter a valid year';
+                        }
+                        return null;
                       },
-                      items: carYear.map((carYear) {
-                        return DropdownMenuItem<String>(
-                          value: carYear,
-                          child: Text(carYear),
-                        );
-                      }).toList(),
                     ),
+
                     //! Car Color
                     const SizedBox(height: 20),
-                    DropdownButtonFormField<String>(
-                      value: selectedCarColor,
-                      hint: Text('Select Car Color'),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedCarColor = value;
-                          _carColorTextController.text = value!;
-                        });
-                      },
-                      items: carColor.map((carColor) {
-                        return DropdownMenuItem<String>(
-                          value: carColor,
-                          child: Text(carColor),
-                        );
-                      }).toList(),
+                    TextFormField(
+                      controller: _carColorTextController,
+                      decoration: InputDecoration(
+                        labelText: 'Car Color',
+                        hintText: 'Select or enter car color',
+                        prefixIcon: Icon(Icons.color_lens),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        suffixIcon: PopupMenuButton<String>(
+                          icon: Icon(Icons.arrow_drop_down),
+                          onSelected: (String value) {
+                            setState(() {
+                              selectedCarColor = value;
+                              _carColorTextController.text = value;
+                            });
+                          },
+                          itemBuilder: (context) => carColor.map((color) => 
+                            PopupMenuItem(value: color, child: Text(color))
+                          ).toList(),
+                        ),
+                        filled: true,
+                         fillColor: Colors.grey.shade50,
+                      ),
+                      validator: (value) => value?.isEmpty ?? true ? 'Please enter car color' : null,
                     ),
-                     //! Car Plate Number
+
+                    //! Car Plate Number
                     const SizedBox(height: 20),
-                    reusableTextField(
-                      "Car Plate Number",
-                      Icons.numbers_outlined,
-                      false,
-                      _carptTextController,
+                    TextFormField(
+                      controller: _carptTextController,
+                      decoration: InputDecoration(
+                        labelText: 'Car Plate Number',
+                        hintText: 'Enter plate number',
+                        prefixIcon: Icon(Icons.numbers_outlined),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                        ),
+                        filled: true,
+                         fillColor: Colors.grey.shade50,
+                      ),
+                      validator: (value) => value?.isEmpty ?? true ? 'Please enter plate number' : null,
                     ),
+
                     //! Number of Passengers
                     const SizedBox(height: 20),
-                    reusableTextField(
-                      "Number of Passenger",
-                      Icons.person_rounded,
-                      true,
-                      _passNumberTextController,
+                    TextFormField(
+                      controller: _passNumberTextController,
+                      decoration: InputDecoration(
+                        labelText: 'Number of Passengers',
+                        hintText: 'Select or enter number',
+                        prefixIcon: Icon(Icons.person_rounded),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        suffixIcon: PopupMenuButton<String>(
+                          icon: Icon(Icons.arrow_drop_down),
+                          onSelected: (String value) {
+                            setState(() {
+                              _passNumberTextController.text = value;
+                            });
+                          },
+                          itemBuilder: (context) => List.generate(8, (i) => i + 1)
+                              .map((num) => PopupMenuItem(
+                                    value: num.toString(),
+                                    child: Text('$num passenger${num > 1 ? 's' : ''}'),
+                                  ))
+                              .toList(),
+                        ),
+                        filled: true,
+                         fillColor: Colors.grey.shade50,
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value?.isEmpty ?? true) return 'Please enter number of passengers';
+                        int? passengers = int.tryParse(value!);
+                        if (passengers == null || passengers < 1 || passengers > 8) {
+                          return 'Please enter a valid number (1-8)';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                   //!firebase button
