@@ -22,7 +22,7 @@ class _ResetPasswordState extends State<ResetPassword> {
         elevation: 0,
         title: const Text(
           "reset password",
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold,color: Colors.white),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold,color: Color.fromARGB(255, 0, 0, 0)),
         ),
       ),
       body: Container(
@@ -46,12 +46,39 @@ class _ResetPasswordState extends State<ResetPassword> {
               children: <Widget>[
                 
                 const SizedBox(height: 20),
-                reusableTextField(
-                  "Enter Email Id",
-                  Icons.person_outlined,
-                  false,
-                  _emailTextController,
-                ),
+                TextFormField(
+  controller: _emailTextController,
+  keyboardType: TextInputType.emailAddress,
+  decoration: InputDecoration(
+    labelText: 'Email',
+    hintText: 'Enter your email address',
+    floatingLabelBehavior: FloatingLabelBehavior.auto,
+    prefixIcon: Icon(Icons.person_outlined),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: Colors.grey.shade300),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: Colors.grey.shade300),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: Colors.blue, width: 2),
+    ),
+    filled: true,
+    fillColor: Colors.grey.shade50,
+  ),
+  validator: (value) {
+    if (value?.isEmpty ?? true) {
+      return 'Please enter your email';
+    }
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
+      return 'Please enter a valid email';
+    }
+    return null;
+  },
+),
                 
                 firebaseButton(context, "reset password", (){
                   FirebaseAuth.instance.sendPasswordResetEmail(

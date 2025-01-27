@@ -22,7 +22,7 @@ Widget reusableTextFieldpassword(String hintText, IconData icon, bool isPassword
       prefixIcon: Icon(icon),
       hintText: hintText,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(10),
       ),
     ),
   );
@@ -49,16 +49,16 @@ TextField reusableTextField(String text, IconData icon, bool isPasswordType,
       floatingLabelBehavior: FloatingLabelBehavior.never,
       fillColor: Colors.white.withOpacity(0.1), // Light fill color
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(22.0),
-        borderSide: const BorderSide(color: Colors.black, width: 1.5),
+        borderRadius: BorderRadius.circular(10.0),
+        borderSide: const BorderSide(color: Colors.black, width: 1.0),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(22.0),
-        borderSide: const BorderSide(color: Colors.black, width: 1.5),
+        borderRadius: BorderRadius.circular(10.0),
+        borderSide: const BorderSide(color: Colors.black, width: 1.0),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(22.0),
-        borderSide: const BorderSide(color: Colors.black, width: 2.0),
+        borderRadius: BorderRadius.circular(10.0),
+        borderSide: const BorderSide(color: Colors.black, width: 1.0),
       ),
     ),
   );

@@ -776,7 +776,7 @@ TextFormField(
                   firebaseButton(
                     context,
                     "Sign Up",
-                    () {
+                    () async {
                       if (_formKey.currentState!.validate()) {
                         try {
                           // Validate phone number input
@@ -793,46 +793,30 @@ TextFormField(
                           double latitude = double.parse(locationParts[0].split(': ')[1]);
                           double longitude = double.parse(locationParts[1].split(': ')[1]);
 
-                          FirebaseAuth.instance.createUserWithEmailAndPassword(
+                          final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
                             email: _emailTextController.text,
                             password: _passwordTextController.text,
-                          ).then((value) async {
-                            print("Create New Account");
+                          );
 
-                            // Send email verification
-                            User? user = FirebaseAuth.instance.currentUser;
-                            if (user != null && !user.emailVerified) {
-                              await user.sendEmailVerification();
-                              print("Verification email sent");
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text("Verification email sent"),
-                                ),
-                              );
-                              
-
-                              // Start checking for email verification
-                            }
-                            // Add data to Firestore
-                        if (_User == 'Driver') {
+                          if (userCredential.user != null) {
+                            if (_User == 'Driver') {
                               // Validate passenger number input
-                          if (_passNumberTextController.text.isEmpty) {
-                            throw FormatException("Passenger number cannot be empty");
-                          }
-                          int passengerNumber = int.parse(_passNumberTextController.text);
+                              if (_passNumberTextController.text.isEmpty) {
+                                throw FormatException("Passenger number cannot be empty");
+                              }
+                              int passengerNumber = int.parse(_passNumberTextController.text);
 
-                          // Validate car year input
-                          if (_carYearTextController.text.isEmpty) {
-                            throw FormatException("Car year cannot be empty");
-                          }
-                          int carYear = int.parse(_carYearTextController.text);
+                              // Validate car year input
+                              if (_carYearTextController.text.isEmpty) {
+                                throw FormatException("Car year cannot be empty");
+                              }
+                              int carYear = int.parse(_carYearTextController.text);
 
-                              firestoreService.addDriver(
+                              await firestoreService.addDriver(
+                                userCredential.user!.uid, // Add UID
                                 _emailTextController.text,
                                 _firstnameTextController.text,
                                 _lastnameTextController.text,
-                                _passwordTextController.text,
-                                _confirmPasswordTextController.text,
                                 phoneNumber,
                                 _carptTextController.text,
                                 passengerNumber,
@@ -846,48 +830,35 @@ TextFormField(
                                 GeoPoint(latitude, longitude),
                                 carYear,
                                 _DCTextController.text,
-                              
-                              ).then((_) {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => DEmailverify(), // Replace with your Driver Dashboard page
-                                  ),
-                                );
-                              });
+                              );
+
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (context) => const DEmailverify()),
+                              );
                             } else {
-                              firestoreService.addCustomer(
+                              await firestoreService.addCustomer(
+                                userCredential.user!.uid, // Add UID
                                 _emailTextController.text,
                                 _firstnameTextController.text,
                                 _lastnameTextController.text,
-                                _passwordTextController.text,
-                                _confirmPasswordTextController.text,
-                                _validateAndParseInt(_phoneNumberController.text, "Phone number"),
+                                phoneNumber,
                                 _governorateTextController.text,
                                 _districtTextController.text,
                                 _genderTextController.text,
-                                _validateAndParseLocation(_locationTextController.text),
+                                GeoPoint(latitude, longitude),
                                 _DCTextController.text,
+                              );
 
-                              ).then((_) {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => CEmailverify(), // Replace with your Customer Dashboard page
-                                  ),
-                                );
-                              });
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (context) => const CEmailverify()),
+                              );
                             }
-
-                          }).catchError((error) {
-                            _handleFirebaseError(error, context);
-                          });
+                          }
                         } catch (e) {
-                          print("Error: ${e.toString()}");
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text("Invalid input: ${e.toString()}"),
-                            ),
+                            SnackBar(content: Text('Error creating account: $e')),
                           );
                         }
                       }

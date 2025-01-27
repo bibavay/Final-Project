@@ -6,7 +6,6 @@ import 'package:flutter_application_4th_year_project/screens/Customers/Customers
 import 'package:flutter_application_4th_year_project/screens/authenticaion/reset_password.dart';
 import 'package:flutter_application_4th_year_project/screens/authenticaion/signup_screen.dart';
 import 'package:flutter_application_4th_year_project/utils/color_utils.dart';
-
 import '../Drivers/Driverdashboard.dart';
 
 class SigninScreen extends StatefulWidget {
@@ -25,6 +24,8 @@ class _SigninScreenState extends State<SigninScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: Text("Sign In",style: TextStyle(fontWeight: FontWeight.w600),),
+      ),
       body: Container(
       width: MediaQuery.of(context).size.width,
       height: MediaQuery.of(context).size.height,
@@ -40,10 +41,30 @@ class _SigninScreenState extends State<SigninScreen> {
             child: Padding(padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).size.height * 0.2,20,0),
             child: Column(
               children: <Widget>[
-                LogoWidget("assets/images/taxii.png"), //function j Reusabile.widget
-                  const SizedBox(
-                  height: 10,
-                ),
+Container(
+  padding: const EdgeInsets.all(16.0),
+  child: Column(
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.local_shipping_rounded,
+            size: 80,
+            color: Colors.blue[700],
+          ),
+          const SizedBox(width: 10),
+          Icon(
+            Icons.location_on_rounded,
+            size: 80,
+            color: Colors.red[700],
+          ),
+        ],
+      ),
+    ],
+  ),
+),            const SizedBox(
+                  height: 30,),
                 // Email/Username Field
 TextFormField(
   controller: _emailTextController,
@@ -118,7 +139,7 @@ TextFormField(
     return null;
   },
 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 forgetPassword(context),
                 const SizedBox(height: 20),
 
@@ -206,20 +227,27 @@ TextFormField(
             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
           ),
         )
+        
       : const Text(
           'Sign In',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,color: Colors.black),
+          style: TextStyle(fontSize: 16,
+           fontWeight: FontWeight.bold,
+           color: Colors.black),
         ),
-), //function j Reusabile.widget ma ya inay
+      ),
+                          const SizedBox(height: 10),
+
                 signUpOption()
               ],
             ),
             ),
           ),
           ),
-    );
-  }
+        );
+      }
     Row signUpOption() {
+    const SizedBox(height: 20);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

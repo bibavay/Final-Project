@@ -4,29 +4,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/screens/Customers/Customers.dart';
 
 class CEmailverify extends StatefulWidget {
-  const CEmailverify({super.key});
+  const CEmailverify({Key? key}) : super(key: key);
 
   @override
   State<CEmailverify> createState() => _CEmailverifyState();
 }
 
 class _CEmailverifyState extends State<CEmailverify> {
-  Timer? _emailCheckTimer;
+  bool isEmailVerified = false;
+  bool canResendEmail = false;
+  Timer? timer;
+  Timer? resendTimer;
+  int timeLeft = 60;
 
   @override
   void initState() {
     super.initState();
+    verifyEmail();
     _startEmailVerificationCheck();
   }
 
   @override
   void dispose() {
-    _emailCheckTimer?.cancel();
+    timer?.cancel();
+    resendTimer?.cancel();
     super.dispose();
   }
 
   void _startEmailVerificationCheck() {
-    _emailCheckTimer = Timer.periodic(Duration(seconds: 3), (timer) async {
+    timer = Timer.periodic(Duration(seconds: 3), (timer) async {
       User? user = FirebaseAuth.instance.currentUser;
       await user?.reload();
       if (user != null && user.emailVerified) {
@@ -41,22 +47,133 @@ class _CEmailverifyState extends State<CEmailverify> {
     });
   }
 
+  void _startResendTimer() {
+    resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (timeLeft > 0) {
+            timeLeft--;
+          } else {
+            canResendEmail = true;
+            resendTimer?.cancel();
+          }
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Email Verification"),
-      ),
-      body: Center(
+      body: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Text("Please verify your email"),
-            Text("A verification link has been sent to your email"),
-            Text("Please click on the link to verify your email"),
+          children: [
+            const Icon(
+              Icons.mark_email_unread_outlined,
+              size: 100,
+              color: Colors.blue,
+            ),
+            const SizedBox(height: 30),
+            const Text(
+              'Verify your email',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'We have sent a verification link to ${FirebaseAuth.instance.currentUser?.email}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildResendButton(),
+            const SizedBox(height: 16),
+            TextButton(
+              style: TextButton.styleFrom(
+                minimumSize: const Size.fromHeight(50),
+              ),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(fontSize: 16),
+              ),
+              onPressed: () => FirebaseAuth.instance.signOut(),
+            ),
+            const SizedBox(height: 24),
+            CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            const Text(
+              'Waiting for verification...',
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 16,
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> verifyEmail() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser!;
+      await user.sendEmailVerification();
+      setState(() {
+        canResendEmail = false;
+        timeLeft = 60;
+      });
+      _startResendTimer();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
+  Widget _buildResendButton() {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: canResendEmail ? verifyEmail : null,
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size.fromHeight(50),
+            backgroundColor: canResendEmail ? Colors.blue : Colors.grey,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: Text(
+            canResendEmail 
+                ? 'Resend Verification Email' 
+                : 'Wait ${timeLeft}s to resend',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        if (!canResendEmail)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: LinearProgressIndicator(
+              value: timeLeft / 60,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+            ),
+          ),
+      ],
     );
   }
 }
