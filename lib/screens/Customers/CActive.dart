@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+
+
 class CActive extends StatefulWidget {
   const CActive({super.key});
 
@@ -12,10 +14,10 @@ class _CActiveState extends State<CActive> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Active"),
+        title: Text('CActive'),
       ),
       body: Center(
-        child: Text("Active"),
+        child: Text('CActive Screen'),
       ),
     );
   }

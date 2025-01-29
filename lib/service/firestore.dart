@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 class FirestoreService {
   // Collections
   final CollectionReference users = FirebaseFirestore.instance.collection('users');
   final CollectionReference trips = FirebaseFirestore.instance.collection('trips');
   final CollectionReference tempUsers = FirebaseFirestore.instance.collection('tempUsers');
+  final CollectionReference deliveries = FirebaseFirestore.instance.collection('deliveries');
 
   // User Methods
   Future<void> addUser(String uid, String email, String userType) async {
@@ -16,11 +19,18 @@ class FirestoreService {
   }
 
   // Trip Methods
-  Future<String> createTrip(String userId, List<Map<String, dynamic>> passengers) async {
+    Future<String> createTrip({
+    required String userId,
+    required DateTime tripDate,
+    required TimeOfDay tripTime,
+    required List<Map<String, dynamic>> passengers,
+  }) async {
     final docRef = await trips.add({
       'userId': userId,
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
+      'tripDate': Timestamp.fromDate(tripDate),
+      'tripTime': '${tripTime.hour}:${tripTime.minute}',
       'passengers': passengers.map((passenger) => {
         'gender': passenger['gender'],
         'age': passenger['age'],
@@ -50,7 +60,7 @@ class FirestoreService {
   Stream<QuerySnapshot> getUserTrips(String userId) {
     return trips
         .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
+        .orderBy('tripDate', descending: true)
         .snapshots();
   }
 
@@ -59,6 +69,10 @@ class FirestoreService {
         .where('status', isEqualTo: 'active')
         .orderBy('createdAt', descending: true)
         .snapshots();
+  }
+
+  Future<DocumentSnapshot> getTripDetails(String tripId) async {
+    return await trips.doc(tripId).get();
   }
 
   Future<void> addDriver(
@@ -148,5 +162,144 @@ class FirestoreService {
       await users.doc(uid).set(userData);
       await tempUsers.doc(uid).delete();
     }
+  }
+
+  // Delivery Methods
+  Future<String> createDeliveryWithDimensions({
+    required String userId,
+    required DateTime deliveryDate,
+    required TimeOfDay deliveryTime,
+    required double height,
+    required double width,
+    required double depth,
+    required double weight,
+    required LatLng sourceLocation,
+    required LatLng destinationLocation,
+  }) async {
+    final docRef = await deliveries.add({
+      'userId': userId,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'deliveryDate': Timestamp.fromDate(deliveryDate),
+      'deliveryTime': '${deliveryTime.hour}:${deliveryTime.minute}',
+      'package': {
+        'dimensions': {
+          'height': height,
+          'width': width,
+          'depth': depth,
+          'weight': weight,
+        },
+        'sourceLocation': GeoPoint(
+          sourceLocation.latitude,
+          sourceLocation.longitude,
+        ),
+        'destinationLocation': GeoPoint(
+          destinationLocation.latitude,
+          destinationLocation.longitude,
+        ),
+      },
+    });
+    return docRef.id;
+  }
+
+  Future<void> changeDeliveryStatus(String deliveryId, String status) async {
+    await deliveries.doc(deliveryId).update({'status': status});
+  }
+
+  Stream<QuerySnapshot> getDeliveriesForUser(String userId) {
+    return deliveries
+        .where('userId', isEqualTo: userId)
+        .orderBy('deliveryDate', descending: true)
+        .snapshots();
+  }
+
+  Future<String> createDelivery({
+    required String userId,
+    required DateTime deliveryDate,
+    required TimeOfDay deliveryTime,
+    required Map<String, dynamic> package,
+  }) async {
+    final docRef = await deliveries.add({
+      'userId': userId,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'deliveryDate': Timestamp.fromDate(deliveryDate),
+      'deliveryTime': '${deliveryTime.hour}:${deliveryTime.minute}',
+      'package': {
+        'dimensions': {
+          'height': package['dimensions']['height'],
+          'width': package['dimensions']['width'],
+          'depth': package['dimensions']['depth'],
+          'weight': package['dimensions']['weight'],
+        },
+        'sourceLocation': GeoPoint(
+          package['sourceLocation'].latitude,
+          package['sourceLocation'].longitude,
+        ),
+        'destinationLocation': GeoPoint(
+          package['destinationLocation'].latitude,
+          package['destinationLocation'].longitude,
+        ),
+      },
+    });
+    return docRef.id;
+  }
+
+  Future<void> updateDeliveryStatus(String deliveryId, String status) async {
+    await deliveries.doc(deliveryId).update({'status': status});
+  }
+
+  Stream<QuerySnapshot> getUserDeliveries(String userId) {
+    return deliveries
+      .where('userId', isEqualTo: userId)
+      .orderBy('deliveryDate', descending: true)
+      .snapshots();
+  }
+
+  Stream<QuerySnapshot> getPendingDeliveries() {
+    return deliveries
+      .where('status', isEqualTo: 'pending')
+      .orderBy('deliveryDate')
+      .snapshots();
+  }
+
+  Future<DocumentSnapshot> getDeliveryById(String deliveryId) {
+    return deliveries.doc(deliveryId).get();
+  }
+
+  Stream<QuerySnapshot> getCompletedDeliveries() {
+    return deliveries
+      .where('status', isEqualTo: 'completed')
+      .orderBy('deliveryDate', descending: true)
+      .snapshots();
+  }
+
+  Stream<QuerySnapshot> getDriverDeliveries(String driverId) {
+    return deliveries
+      .where('driverId', isEqualTo: driverId)
+      .orderBy('deliveryDate')
+      .snapshots();
+  }
+
+  Future<void> assignDriverToDelivery(String deliveryId, String driverId) async {
+    await deliveries.doc(deliveryId).update({
+      'driverId': driverId,
+      'status': 'assigned',
+      'assignedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateDeliveryLocation(String deliveryId, GeoPoint currentLocation) async {
+    await deliveries.doc(deliveryId).update({
+      'currentLocation': currentLocation,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> completeDelivery(String deliveryId) async {
+    await deliveries.doc(deliveryId).update({
+      'status': 'completed',
+      'completedAt': FieldValue.serverTimestamp(),
+    });
   }
 }

@@ -4,7 +4,6 @@ import 'package:flutter_application_4th_year_project/screens/Customers/CActive.d
 import 'package:flutter_application_4th_year_project/screens/Customers/CHistory.dart';
 import 'package:flutter_application_4th_year_project/screens/Customers/NewDelivery.dart';
 import 'package:flutter_application_4th_year_project/screens/Customers/NewTrip.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/Driverdashboard.dart';
 import 'package:flutter_application_4th_year_project/screens/authenticaion/signin_screen.dart';
 
 class CustomerDashboard extends StatefulWidget {
@@ -44,7 +43,7 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
             Colors.blue,
             () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const Newdelivery()),
+              MaterialPageRoute(builder: (context) => const NewDelivery()),
             ),
           ),
           const SizedBox(height: 16),
@@ -77,7 +76,7 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
             Colors.purple,
             () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const DriverDashboard()),
+              MaterialPageRoute(builder: (context) => const CHistory()),
             ),
           ),
         ],

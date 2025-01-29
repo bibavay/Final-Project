@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /trips/{tripId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    match /deliveries/{deliveryId} {
+      allow create: if request.auth != null;
+      allow read, update: if request.auth != null && 
+        (request.auth.uid == resource.data.userId ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'driver');
+      allow delete: if false;
+    }
+  }
+}

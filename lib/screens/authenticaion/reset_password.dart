@@ -1,91 +1,130 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/reusabile_widget/reusabile_widget.dart';
-import 'package:flutter_application_4th_year_project/utils/color_utils.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ResetPassword extends StatefulWidget {
   const ResetPassword({super.key});
 
   @override
-  _ResetPasswordState createState() => _ResetPasswordState();
+  State<ResetPassword> createState() => _ResetPasswordState();
 }
 
 class _ResetPasswordState extends State<ResetPassword> {
-  final TextEditingController _emailTextController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _emailTextController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailTextController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          "reset password",
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold,color: Color.fromARGB(255, 0, 0, 0)),
-        ),
+        title: const Text('Reset Password'),
       ),
-      body: Container(
-        width: MediaQuery.of(context).size.width,
-        height: MediaQuery.of(context).size.height,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              hexStringToColor("FFFFFE"),
-              hexStringToColor("FFFFFE"),
-              hexStringToColor("FFFFFE")
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 32),
+              // Logo or Header
+              Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.lock_reset, size: 100, color: Colors.blue[700]),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Reset Your Password',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[900],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              // Email Input
+              TextFormField(
+                controller: _emailTextController,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  prefixIcon: const Icon(Icons.email),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                    return 'Please enter a valid email';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              // Reset Password Button
+              ElevatedButton(
+                onPressed: () async {
+                  if (_formKey.currentState!.validate()) {
+                    try {
+                      await FirebaseAuth.instance.sendPasswordResetEmail(
+                        email: _emailTextController.text,
+                      );
+                      if (!mounted) return;
+                      
+                      // Show success message and navigate back
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Password reset email sent'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } on FirebaseAuthException catch (e) {
+                      String message;
+                      switch (e.code) {
+                        case 'user-not-found':
+                          message = 'No user found with this email';
+                          break;
+                        case 'invalid-email':
+                          message = 'Please enter a valid email address';
+                          break;
+                        default:
+                          message = 'An error occurred. Please try again';
+                      }
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(message),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Colors.blue[700],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Reset Password',
+                  style: TextStyle(fontSize: 16, color: Colors.white),
+                ),
+              ),
             ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 120, 20, 0),
-            child: Column(
-              children: <Widget>[
-                
-                const SizedBox(height: 20),
-                TextFormField(
-  controller: _emailTextController,
-  keyboardType: TextInputType.emailAddress,
-  decoration: InputDecoration(
-    labelText: 'Email',
-    hintText: 'Enter your email address',
-    floatingLabelBehavior: FloatingLabelBehavior.auto,
-    prefixIcon: Icon(Icons.person_outlined),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: Colors.grey.shade300),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: Colors.grey.shade300),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: Colors.blue, width: 2),
-    ),
-    filled: true,
-    fillColor: Colors.grey.shade50,
-  ),
-  validator: (value) {
-    if (value?.isEmpty ?? true) {
-      return 'Please enter your email';
-    }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
-      return 'Please enter a valid email';
-    }
-    return null;
-  },
-),
-                
-                firebaseButton(context, "reset password", (){
-                  FirebaseAuth.instance.sendPasswordResetEmail(
-                    email: _emailTextController.text).then((value) => Navigator.of(context).pop());
-                })                
-              ],
-            ),
           ),
         ),
       ),
