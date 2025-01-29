@@ -4,10 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/reusabile_widget/reusabile_widget.dart';
 import 'package:flutter_application_4th_year_project/screens/Customers/Cemailverification.dart';
+import 'package:flutter_application_4th_year_project/screens/Customers/location_picker.dart';
 import 'package:flutter_application_4th_year_project/screens/Drivers/Demailverification.dart';
 import 'package:flutter_application_4th_year_project/service/firestore.dart';
 import 'package:flutter_application_4th_year_project/utils/color_utils.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -36,6 +38,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _carYearTextController = TextEditingController();
   final TextEditingController _DCTextController = TextEditingController();
   final FirestoreService firestoreService = FirestoreService();
+  GeoPoint? location;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -50,12 +53,54 @@ class _SignUpScreenState extends State<SignUpScreen> {
     'Sulaymaniyah': ['Kalar', 'ranya'],
   };
   String? selectedCarType;
-  final List<String> carTypes = ['Sedan', 'SUV', 'Truck', 'Coupe', 'Convertible'];
-  String? selectedCarMaker;
-  final List<String> carMaker = ['1', '2', '3', '4'];
-  String? selectedCarColor;
-  final List<String> carColor = ['red', 'green', 'blue', 'yellow'];
-  String? selectedCarYear;
+final List<String> carTypes = [
+  'Convertible',
+  'Coupe',
+  'Crossover',
+  'Hatchback',
+  'Minivan',
+  'Pickup Truck',
+  'Sedan',
+  'Sports Car',
+  'SUV',
+  'Van',
+  'Wagon'
+];  String? selectedCarMaker;
+final List<String> carMaker = [
+  'Audi',
+  'BMW',
+  'Chevrolet',
+  'Ford',
+  'Honda',
+  'Hyundai',
+  'Kia',
+  'Lexus',
+  'Mazda',
+  'Mercedes-Benz',
+  'Mitsubishi',
+  'Nissan',
+  'Subaru',
+  'Toyota',
+  'Volkswagen',
+];  String? selectedCarColor;
+  final List<String> carColor = [
+  'Black',
+  'Blue',
+  'Brown',
+  'Burgundy',
+  'Champagne',
+  'Dark Blue',
+  'Dark Gray',
+  'Gold',
+  'Gray',
+  'Green',
+  'Light Blue',
+  'Orange',
+  'Pearl White',
+  'Red',
+  'Silver',
+  'White',
+];  String? selectedCarYear;
   final List<String> carYear = ['2010', '2011', '2012', '2013'];
   String? selectedCarModel;
   final List<String> carModel = ['Toyota', 'Nissan'];
@@ -444,28 +489,46 @@ TextFormField(
               .toList(),
     ),
   ),
-  validator: (value) => value?.isEmpty ?? true ? 'Please select district' : null,
-  enabled: selectedGovernorate != null,
-),SizedBox(height: 16.0),
-                  //! Get Current Location Button
+                validator: (value) => value?.isEmpty ?? true ? 'Please select district' : null,
+                enabled: selectedGovernorate != null,
+              ),SizedBox(height: 16.0),
+                                //! Get Current Location Button
                   const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () async {
-                      try {
-                        Position position = await _getCurrentLocation();
-                        print('Current location: ${position.latitude}, ${position.longitude}');
-                        _locationTextController.text = 'Lat: ${position.latitude}, Lon: ${position.longitude}';
-                      } catch (e) {
-                        print('Error: $e');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("Error: $e"),
-                          ),
-                        );
-                      }
-                    },
-                    child: Text('Get Current Location'),
-                  ),
+                  ElevatedButton.icon(
+  onPressed: () async {
+    try {
+      Position position = await _getCurrentLocation();
+      final result = await Navigator.push<LatLng>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LocationPickerScreen(
+            isSource: true,
+            initialLocation: LatLng(position.latitude, position.longitude),
+          ),
+        ),
+      );
+      
+      if (result != null) {
+        setState(() {
+          _locationTextController.text = 'Lat: ${result.latitude}, Lon: ${result.longitude}';
+          location = GeoPoint(result.latitude, result.longitude);
+        });
+      }
+    } catch (e) {
+      print('Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error getting location: $e')),
+      );
+    }
+  },
+  icon: const Icon(Icons.my_location, color: Colors.white),
+  label: const Text('Get Current Location', style: TextStyle(color: Colors.white)),
+  style: ElevatedButton.styleFrom(
+    backgroundColor: Colors.blue[700],
+    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  ),
+),
                   const SizedBox(height: 20),
                   // reusableTextField(
                   //   "Current Location",
@@ -738,7 +801,7 @@ TextFormField(
                     TextFormField(
                       controller: _passNumberTextController,
                       decoration: InputDecoration(
-                        labelText: 'Number of Passengers',
+                        labelText: 'Max Passengers Number',
                         hintText: 'Select or enter number',
                         prefixIcon: Icon(Icons.person_rounded),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),

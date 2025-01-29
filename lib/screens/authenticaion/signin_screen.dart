@@ -15,236 +15,255 @@ class SigninScreen extends StatefulWidget {
 }
 
 class _SigninScreenState extends State<SigninScreen> {
-  final TextEditingController _passwordTextController = TextEditingController();
-  final TextEditingController _emailTextController = TextEditingController();
-  bool _isPasswordVisible = false;
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
+
+  Future<void> _signIn() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      
+      try {
+        final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .get();
+
+        if (!userDoc.exists) {
+          throw 'User data not found';
+        }
+
+        final userData = userDoc.data()!;
+        final userType = userData['userType'] as String;
+
+        if (!mounted) return;
+
+        // Navigate based on user type without named routes
+        if (userType == 'driver') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const DriverDashboard()),
+          );
+        } else if (userType == 'customer') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const CustomerDashboard()),
+          );
+        } else {
+          throw 'Invalid user type';
+        }
+
+      } on FirebaseAuthException catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getErrorMessage(e.code)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    }
+  }
+
+  String _getErrorMessage(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No user found with this email';
+      case 'wrong-password':
+        return 'Wrong password provided';
+      case 'invalid-email':
+        return 'Invalid email address';
+      default:
+        return 'An error occurred. Please try again';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Sign In",style: TextStyle(fontWeight: FontWeight.w600),),
       ),
-      body: Container(
-      width: MediaQuery.of(context).size.width,
-      height: MediaQuery.of(context).size.height,
-
-      decoration: BoxDecoration(gradient: LinearGradient(colors:
-       [
-        hexStringToColor("FFFFFF"),
-          hexStringToColor("FFFFFF"),
-          hexStringToColor("FFFFFF")],
-          begin: Alignment.topCenter, end: Alignment.bottomCenter
-          )),
-          child: SingleChildScrollView(
-            child: Padding(padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).size.height * 0.2,20,0),
-            child: Column(
-              children: <Widget>[
-Container(
-  padding: const EdgeInsets.all(16.0),
-  child: Column(
-    children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      body: Stack(
         children: [
-          Icon(
-            Icons.local_shipping_rounded,
-            size: 80,
-            color: Colors.blue[700],
+          Form(
+            key: _formKey,
+            child: Container(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              decoration: BoxDecoration(gradient: LinearGradient(colors:
+              [
+                hexStringToColor("FFFFFF"),
+                hexStringToColor("FFFFFF"),
+                hexStringToColor("FFFFFF")],
+                begin: Alignment.topCenter, end: Alignment.bottomCenter
+              )),
+              child: SingleChildScrollView(
+                child: Padding(padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).size.height * 0.2,20,0),
+                  child: Column(
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.local_shipping_rounded,
+                                  size: 80,
+                                  color: Colors.blue[700],
+                                ),
+                                const SizedBox(width: 10),
+                                Icon(
+                                  Icons.location_on_rounded,
+                                  size: 80,
+                                  color: Colors.red[700],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 30,),
+                      // Email/Username Field
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          labelText: 'Email',
+                          hintText: 'Enter your email address',
+                          floatingLabelBehavior: FloatingLabelBehavior.auto,
+                          prefixIcon: Icon(Icons.person_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.blue, width: 2),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        validator: (value) {
+                          if (value?.isEmpty ?? true) {
+                            return 'Please enter your email';
+                          }
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      // Password Field
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: !_isPasswordVisible,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          hintText: 'Enter your password',
+                          floatingLabelBehavior: FloatingLabelBehavior.auto,
+                          prefixIcon: Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                            ),
+                            onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.blue, width: 2),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        validator: (value) {
+                          if (value?.isEmpty ?? true) {
+                            return 'Please enter your password';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 1),
+                      forgetPassword(context),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: _isLoading ? null : _signIn,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color.fromARGB(255, 219, 226, 233),
+                          padding: const EdgeInsets.symmetric(horizontal: 129, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                            : const Text(
+                          'Sign In',
+                          style: TextStyle(fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      signUpOption()
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
-          const SizedBox(width: 10),
-          Icon(
-            Icons.location_on_rounded,
-            size: 80,
-            color: Colors.red[700],
-          ),
+          if (_isLoading)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
         ],
       ),
-    ],
-  ),
-),            const SizedBox(
-                  height: 30,),
-                // Email/Username Field
-TextFormField(
-  controller: _emailTextController,
-  keyboardType: TextInputType.emailAddress,
-  decoration: InputDecoration(
-    labelText: 'Email',
-    hintText: 'Enter your email address',
-    floatingLabelBehavior: FloatingLabelBehavior.auto,
-    prefixIcon: Icon(Icons.person_outlined),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: Colors.grey.shade300),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: Colors.grey.shade300),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: Colors.blue, width: 2),
-    ),
-    filled: true,
-    fillColor: Colors.grey.shade50,
-  ),
-  validator: (value) {
-    if (value?.isEmpty ?? true) {
-      return 'Please enter your email';
-    }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
-      return 'Please enter a valid email';
-    }
-    return null;
-  },
-),
+    );
+  }
 
-const SizedBox(height: 20),
-
-// Password Field
-TextFormField(
-  controller: _passwordTextController,
-  obscureText: !_isPasswordVisible,
-  decoration: InputDecoration(
-    labelText: 'Password',
-    hintText: 'Enter your password',
-    floatingLabelBehavior: FloatingLabelBehavior.auto,
-    prefixIcon: Icon(Icons.lock_outline),
-    suffixIcon: IconButton(
-      icon: Icon(
-        _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-      ),
-      onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
-    ),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: Colors.grey.shade300),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: Colors.grey.shade300),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: Colors.blue, width: 2),
-    ),
-    filled: true,
-    fillColor: Colors.grey.shade50,
-  ),
-  validator: (value) {
-    if (value?.isEmpty ?? true) {
-      return 'Please enter your password';
-    }
-    return null;
-  },
-),
-                const SizedBox(height: 1),
-                forgetPassword(context),
-                const SizedBox(height: 20),
-
-                ElevatedButton(
-  onPressed: _isLoading ? null : () async {
-    setState(() => _isLoading = true);
-    try {
-      // First authenticate with Firebase
-      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailTextController.text.trim(),
-        password: _passwordTextController.text,
-      );
-
-      // Then check user type in Firestore
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .get();
-
-      if (!mounted) return;
-
-      if (userDoc.exists) {
-        final userType = userDoc.data()?['userType'];
-        
-        // Navigate based on user type
-        if (userType == 'Customer') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const CustomerDashboard()),
-          );
-        } else if (userType == 'Driver') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const DriverDashboard()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid user type')),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User profile not found')),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      String message;
-      switch (e.code) {
-        case 'user-not-found':
-          message = 'No user found with this email';
-          break;
-        case 'wrong-password':
-          message = 'Invalid password';
-          break;
-        case 'invalid-email':
-          message = 'Invalid email format';
-          break;
-        default:
-          message = 'Authentication failed: ${e.message}';
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  },
-  style: ElevatedButton.styleFrom(
-    backgroundColor: const Color.fromARGB(255, 219, 226, 233),
-    padding: const EdgeInsets.symmetric(horizontal: 129, vertical: 12),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(25),
-    ),
-  ),
-  child: _isLoading
-      ? const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        )
-        
-      : const Text(
-          'Sign In',
-          style: TextStyle(fontSize: 16,
-           fontWeight: FontWeight.bold,
-           color: Colors.black),
-        ),
-      ),
-                          const SizedBox(height: 10),
-
-                signUpOption()
-              ],
-            ),
-            ),
-          ),
-          ),
-        );
-      }
-    Row signUpOption() {
+  Row signUpOption() {
     const SizedBox(height: 20);
 
     return Row(
@@ -267,20 +286,19 @@ TextFormField(
   }
 
   Widget forgetPassword(BuildContext context) {
-  return Container(
-    width: MediaQuery.of(context).size.width,
-    height: 35,
-    alignment: Alignment.bottomRight,
-    child: TextButton(
-      child: const Text(
-        "Forgot Password?",
-        style: TextStyle(color: Colors.black),
-        textAlign: TextAlign.right,
+    return Container(
+      width: MediaQuery.of(context).size.width,
+      height: 35,
+      alignment: Alignment.bottomRight,
+      child: TextButton(
+        child: const Text(
+          "Forgot Password?",
+          style: TextStyle(color: Colors.black),
+          textAlign: TextAlign.right,
+        ),
+        onPressed: () => Navigator.push(
+            context, MaterialPageRoute(builder: (context) => const ResetPassword())),
       ),
-      onPressed: () => Navigator.push(
-          context, MaterialPageRoute(builder: (context) => const ResetPassword())),
-    ),
-  );
-}
-
+    );
+  }
 }
