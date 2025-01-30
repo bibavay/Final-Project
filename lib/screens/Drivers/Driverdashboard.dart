@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/screens/Drivers/DActive.dart';
 import 'package:flutter_application_4th_year_project/screens/Drivers/DHistory.dart';
+import 'package:flutter_application_4th_year_project/screens/Drivers/Filters.dart';
 import 'package:flutter_application_4th_year_project/screens/authenticaion/signin_screen.dart';
 
 class DriverDashboard extends StatefulWidget {
@@ -12,17 +13,29 @@ class DriverDashboard extends StatefulWidget {
 }
 
 class _DriverDashboardState extends State<DriverDashboard> {
+  int _selectedIndex = 0;
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Driver Dashboard"),
         automaticallyImplyLeading: false,
+        leading: _selectedIndex != 0 ? IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () {
+          setState(() {
+            _selectedIndex = 0; // Return to main dashboard
+          });
+        },
+      ) : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
+              if (!mounted) return;
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const SigninScreen()),
@@ -31,32 +44,63 @@ class _DriverDashboardState extends State<DriverDashboard> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
+      body: IndexedStack(
+        index: _selectedIndex,
         children: [
-          _buildDashboardCard(
-            'Active Orders',
-            'View and manage current orders',
-            Icons.local_shipping,
-            Colors.green,
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const Dactive()),
-            ),
+          // Home Screen with Cards
+          ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              _buildDashboardCard(
+                'Active Orders',
+                'View and manage current orders',
+                Icons.local_shipping,
+                Colors.green,
+                () => setState(() => _selectedIndex = 3),
+              ),
+              const SizedBox(height: 16),
+              _buildDashboardCard(
+                'Order History',
+                'View completed deliveries',
+                Icons.history,
+                Colors.blue,
+                () => setState(() => _selectedIndex = 2),
+              ),
+               const SizedBox(height: 16),
+              _buildDashboardCard(
+                'Filter',
+                'View all order to filter it',
+                Icons.filter_list,
+                Colors.blue,
+                () => setState(() => _selectedIndex = 1),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          _buildDashboardCard(
-            'Order History',
-            'View completed deliveries',
-            Icons.history,
-            Colors.blue,
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const DHistory()),
-            ),
-          ),
+          // Filters Screen
+          const Filters(),
+          // History Screen
+          const DHistory(),
+          const Dactive(),
         ],
       ),
+      // bottomNavigationBar: BottomNavigationBar(
+      //   currentIndex: _selectedIndex,
+      //   onTap: (index) => setState(() => _selectedIndex = index),
+      //   items: const [
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.dashboard),
+      //       label: 'Dashboard',
+      //     ),
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.filter_list),
+      //       label: 'Filters',
+      //     ),
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.history),
+      //       label: 'History',
+      //     ),
+      //   ],
+      // ),
     );
   }
 
@@ -74,7 +118,6 @@ class _DriverDashboardState extends State<DriverDashboard> {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-            
             ),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
@@ -84,7 +127,6 @@ class _DriverDashboardState extends State<DriverDashboard> {
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(15),
-                    
                   ),
                   child: Icon(
                     icon,
@@ -119,7 +161,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
                 ),
                 Icon(
                   Icons.arrow_forward_ios,
-                color: Colors.grey[400],
+                  color: Colors.grey[400],
                   size: 16,
                 ),
               ],

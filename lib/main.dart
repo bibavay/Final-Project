@@ -1,7 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/firebase_options.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/Customers.dart';
 import 'package:flutter_application_4th_year_project/screens/authenticaion/signin_screen.dart';
 
 void main() async {
