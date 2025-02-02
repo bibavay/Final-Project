@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 class CHistory extends StatefulWidget {
   const CHistory({super.key});
@@ -12,103 +13,107 @@ class CHistory extends StatefulWidget {
 class _CHistoryState extends State<CHistory> {
   final user = FirebaseAuth.instance.currentUser;
 
+  Stream<QuerySnapshot> getCompletedTrips() {
+    return FirebaseFirestore.instance
+        .collection('trips')
+        .where('userId', isEqualTo: user?.uid)
+        .where('status', isEqualTo: 'completed')
+        .orderBy('tripDate', descending: true)
+        .snapshots();
+  }
+
+  Stream<QuerySnapshot> getCompletedDeliveries() {
+    return FirebaseFirestore.instance
+        .collection('deliveries')
+        .where('userId', isEqualTo: user?.uid)
+        .where('status', isEqualTo: 'completed')
+        .orderBy('deliveryDate', descending: true)
+        .snapshots();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('History'),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('History'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Trips'),
+              Tab(text: 'Deliveries'),
+            ],
+          ),
+        ),
+        body: TabBarView(
           children: [
-            const SizedBox(height: 16),
-            const Text(
-              'Trips',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            // Trips History Tab
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('trips')
-                  .where('userId', isEqualTo: user?.uid)
-                  .orderBy('tripDate', descending: true)
-                  .snapshots(),
+              stream: getCompletedTrips(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
-
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
-                final trips = snapshot.data?.docs ?? [];
-
-                if (trips.isEmpty) {
-                  return const Center(child: Text('No trips found'));
+                if (snapshot.data?.docs.isEmpty ?? true) {
+                  return const Center(child: Text('No completed trips'));
                 }
 
                 return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: trips.length,
+                  padding: const EdgeInsets.all(8),
+                  itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
-                    final data = trips[index].data() as Map<String, dynamic>;
+                    final trip = snapshot.data!.docs[index];
+                    final data = trip.data() as Map<String, dynamic>;
                     final tripDate = (data['tripDate'] as Timestamp).toDate();
-                    final tripTime = data['tripTime'] ?? 'No time specified';
 
                     return Card(
-                      margin: const EdgeInsets.all(8),
                       elevation: 4,
+                      margin: const EdgeInsets.symmetric(vertical: 8),
                       child: ListTile(
-                        title: Text('Trip on ${tripDate.toLocal()} at $tripTime'),
-                        subtitle: Text('Status: ${data['status']}'),
+                        leading: const Icon(Icons.directions_car, color: Colors.grey),
+                        title: Text('Trip on ${DateFormat('MMM dd, yyyy').format(tripDate)}'),
+                        subtitle: Text('Time: ${data['tripTime']}'),
+                        trailing: const Icon(Icons.check_circle, color: Colors.green),
                       ),
                     );
                   },
                 );
               },
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Deliveries',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+
+            // Deliveries History Tab
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('deliveries')
-                  .where('userId', isEqualTo: user?.uid)
-                  .orderBy('deliveryDate', descending: true)
-                  .snapshots(),
+              stream: getCompletedDeliveries(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
-
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
-                final deliveries = snapshot.data?.docs ?? [];
-
-                if (deliveries.isEmpty) {
-                  return const Center(child: Text('No deliveries found'));
+                if (snapshot.data?.docs.isEmpty ?? true) {
+                  return const Center(child: Text('No completed deliveries'));
                 }
 
                 return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: deliveries.length,
+                  padding: const EdgeInsets.all(8),
+                  itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
-                    final data = deliveries[index].data() as Map<String, dynamic>;
+                    final delivery = snapshot.data!.docs[index];
+                    final data = delivery.data() as Map<String, dynamic>;
                     final deliveryDate = (data['deliveryDate'] as Timestamp).toDate();
-                    final deliveryTime = data['deliveryTime'] ?? 'No time specified';
 
                     return Card(
-                      margin: const EdgeInsets.all(8),
                       elevation: 4,
+                      margin: const EdgeInsets.symmetric(vertical: 8),
                       child: ListTile(
-                        title: Text('Delivery on ${deliveryDate.toLocal()} at $deliveryTime'),
-                        subtitle: Text('Status: ${data['status']}'),
+                        leading: const Icon(Icons.local_shipping, color: Colors.grey),
+                        title: Text('Delivery on ${DateFormat('MMM dd, yyyy').format(deliveryDate)}'),
+                        subtitle: Text('Time: ${data['deliveryTime']}'),
+                        trailing: const Icon(Icons.check_circle, color: Colors.blue),
                       ),
                     );
                   },

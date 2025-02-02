@@ -44,6 +44,37 @@ class _NewDeliveryState extends State<NewDelivery> {
   
   List<LatLng> routePoints = [];
 
+  // Add Firestore instance
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
+  @override
+  void initState() {
+    super.initState();
+    _checkFirestoreCollection();
+  }
+
+  Future<void> _checkFirestoreCollection() async {
+    try {
+      // Check if collection exists
+      final deliveriesRef = _firestore.collection('deliveries');
+      final snapshot = await deliveriesRef.limit(1).get();
+      
+      print('Deliveries collection exists: ${snapshot.docs.isNotEmpty}');
+      
+      // Create collection if doesn't exist
+      if (snapshot.docs.isEmpty) {
+        print('Creating deliveries collection...');
+        await deliveriesRef.doc('placeholder').set({
+          'created': FieldValue.serverTimestamp(),
+          'type': 'placeholder'
+        });
+        await deliveriesRef.doc('placeholder').delete();
+      }
+    } catch (e) {
+      print('Error checking Firestore collection: $e');
+    }
+  }
+
   @override
   void dispose() {
     _heightController.dispose();
@@ -87,91 +118,70 @@ class _NewDeliveryState extends State<NewDelivery> {
   }
 
   Future<void> _saveDelivery() async {
-  // Check authentication first
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    print('Debug: No user logged in');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please login to create a delivery'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-
-  print('Debug: User logged in with ID: ${user.uid}');
-
-  if (deliveryDate == null || deliveryTime == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please select delivery date and time')),
-    );
-    return;
-  }
-
-  if (!package.isComplete || 
-      package.sourceLocation == null || 
-      package.destinationLocation == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please complete all delivery details'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-
-  setState(() => _isLoading = true);
-
-  try {
-    print('Debug: Creating delivery document');
-    final deliveryRef = await FirebaseFirestore.instance.collection('deliveries').add({
-      'userId': user.uid,
-      'status': 'pending',
-      'createdAt': FieldValue.serverTimestamp(),
-      'deliveryDate': Timestamp.fromDate(deliveryDate!),
-      'deliveryTime': '${deliveryTime!.hour}:${deliveryTime!.minute}',
-      'package': {
-        'dimensions': {
-          'height': package.height,
-          'width': package.width,
-          'depth': package.depth,
-          'weight': package.weight,
+    if (deliveryDate == null || deliveryTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select delivery date and time')),
+      );
+      return;
+    }
+  
+    try {
+      setState(() => _isLoading = true);
+      
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+  
+      await FirebaseFirestore.instance.collection('deliveries').add({
+        'userId': user.uid,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+        'deliveryDate': Timestamp.fromDate(deliveryDate!),
+        'deliveryTime': '${deliveryTime!.hour}:${deliveryTime!.minute}',
+        'package': {
+          'dimensions': {
+            'height': package.height,
+            'width': package.width,
+            'depth': package.depth,
+            'weight': package.weight,
+          },
+          'sourceLocation': GeoPoint(
+            package.sourceLocation!.latitude,
+            package.sourceLocation!.longitude,
+          ),
+          'destinationLocation': GeoPoint(
+            package.destinationLocation!.latitude,
+            package.destinationLocation!.longitude,
+          ),
         },
-        'sourceLocation': GeoPoint(
-          package.sourceLocation!.latitude,
-          package.sourceLocation!.longitude,
+      });
+  
+      if (!mounted) return;
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Delivery request submitted successfully!'),
+          backgroundColor: Colors.green,
         ),
-        'destinationLocation': GeoPoint(
-          package.destinationLocation!.latitude,
-          package.destinationLocation!.longitude,
+      );
+  
+      // Navigate back
+      Navigator.pop(context);
+  
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
         ),
-      },
-    });
-
-    print('Debug: Delivery created with ID: ${deliveryRef.id}');
-
-    if (!mounted) return;
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Delivery request created successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  } catch (e) {
-    print('Debug: Error creating delivery: $e');
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error creating delivery: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
-}
 
   Widget _buildLocationButtons() {
     return Card(

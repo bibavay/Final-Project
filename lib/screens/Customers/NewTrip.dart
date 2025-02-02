@@ -488,7 +488,10 @@ class _NewtripState extends State<Newtrip> {
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trip created successfully!')),
+        const SnackBar(
+          content: Text('Delivery request submitted successfully!'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

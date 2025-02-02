@@ -1,14 +1,13 @@
 {
   "indexes": [
     {
-      "collectionGroup": "trips",
+      "collectionGroup": "deliveries",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "tripDate", "order": "DESCENDING" }
+        { "fieldPath": "deliveryDate", "order": "DESCENDING" }
       ]
     }
-  ],
-  "fieldOverrides": []
+  ]
 }
