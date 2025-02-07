@@ -1,9 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/screens/Drivers/DActive.dart';
 import 'package:flutter_application_4th_year_project/screens/Drivers/DHistory.dart';
+import 'package:flutter_application_4th_year_project/screens/Drivers/DriverProfile.dart';
 import 'package:flutter_application_4th_year_project/screens/Drivers/Filters.dart';
-import 'package:flutter_application_4th_year_project/screens/authenticaion/signin_screen.dart';
 
 class DriverDashboard extends StatefulWidget {
   const DriverDashboard({super.key});
@@ -21,13 +20,12 @@ class _DriverDashboardState extends State<DriverDashboard> {
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (!mounted) return;
-              Navigator.pushReplacement(
+            icon: const Icon(Icons.account_circle),
+            tooltip: 'Profile',
+            onPressed: () {
+              Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const SigninScreen()),
+                MaterialPageRoute(builder: (context) => const DriverProfile()),
               );
             },
           ),

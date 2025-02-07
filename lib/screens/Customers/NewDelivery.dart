@@ -42,6 +42,51 @@ class _NewDeliveryState extends State<NewDelivery> {
   final _depthController = TextEditingController();
   final _weightController = TextEditingController();
   
+  final TextEditingController _pickupCityController = TextEditingController();
+  final TextEditingController _pickupRegionController = TextEditingController();
+  final TextEditingController _dropoffCityController = TextEditingController();
+  final TextEditingController _dropoffRegionController = TextEditingController();
+  String? selectedPickupCity;
+  String? selectedPickupRegion;
+  String? selectedDropoffCity;
+  String? selectedDropoffRegion;
+
+  final Map<String, List<String>> kurdistanCities = {
+    'Erbil': [
+      'Erbil City',
+      'Shaqlawa',
+      'Soran',
+      'Koya',
+      'Mergasur',
+      'Choman',
+      'Makhmur',
+    ],
+    'Sulaymaniyah': [
+      'Sulaymaniyah City',
+      'Halabja',
+      'Ranya',
+      'Penjwin',
+      'Dukan',
+      'Chamchamal',
+      'Kalar',
+    ],
+    'Duhok': [
+      'Duhok City',
+      'Zakho',
+      'Amedi',
+      'Akre',
+      'Bardarash',
+      'Shekhan',
+      'Semel',
+    ],
+    'Halabja': [
+      'Halabja City',
+      'Shahrizor',
+      'Khurmal',
+      'Sirwan',
+    ],
+  };
+
   List<LatLng> routePoints = [];
 
   // Add Firestore instance
@@ -77,6 +122,10 @@ class _NewDeliveryState extends State<NewDelivery> {
 
   @override
   void dispose() {
+    _pickupCityController.dispose();
+    _pickupRegionController.dispose();
+    _dropoffCityController.dispose();
+    _dropoffRegionController.dispose();
     _heightController.dispose();
     _widthController.dispose();
     _depthController.dispose();
@@ -118,70 +167,93 @@ class _NewDeliveryState extends State<NewDelivery> {
   }
 
   Future<void> _saveDelivery() async {
-    if (deliveryDate == null || deliveryTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select delivery date and time')),
-      );
-      return;
-    }
-  
-    try {
-      setState(() => _isLoading = true);
-      
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-  
-      await FirebaseFirestore.instance.collection('deliveries').add({
-        'userId': user.uid,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'deliveryDate': Timestamp.fromDate(deliveryDate!),
-        'deliveryTime': '${deliveryTime!.hour}:${deliveryTime!.minute}',
-        'package': {
-          'dimensions': {
-            'height': package.height,
-            'width': package.width,
-            'depth': package.depth,
-            'weight': package.weight,
-          },
-          'sourceLocation': GeoPoint(
-            package.sourceLocation!.latitude,
-            package.sourceLocation!.longitude,
-          ),
-          'destinationLocation': GeoPoint(
-            package.destinationLocation!.latitude,
-            package.destinationLocation!.longitude,
-          ),
+  // Add validation for location details
+  if (_pickupCityController.text.isEmpty || _pickupRegionController.text.isEmpty ||
+      _dropoffCityController.text.isEmpty || _dropoffRegionController.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select pickup and drop-off locations')),
+    );
+    return;
+  }
+
+  if (deliveryDate == null || deliveryTime == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select delivery date and time')),
+    );
+    return;
+  }
+
+  try {
+    setState(() => _isLoading = true);
+    
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await FirebaseFirestore.instance.collection('deliveries').add({
+      'userId': user.uid,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'deliveryDate': Timestamp.fromDate(deliveryDate!),
+      'deliveryTime': '${deliveryTime!.hour}:${deliveryTime!.minute}',
+      'package': {
+        'dimensions': {
+          'height': package.height,
+          'width': package.width,
+          'depth': package.depth,
+          'weight': package.weight,
         },
-      });
-  
-      if (!mounted) return;
-      
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Delivery request submitted successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-  
-      // Navigate back
-      Navigator.pop(context);
-  
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+        'locations': {
+          'source': {
+            'coordinates': GeoPoint(
+              package.sourceLocation!.latitude,
+              package.sourceLocation!.longitude,
+            ),
+            'city': _pickupCityController.text,
+            'region': _pickupRegionController.text,
+          },
+          'destination': {
+            'coordinates': GeoPoint(
+              package.destinationLocation!.latitude,
+              package.destinationLocation!.longitude,
+            ),
+            'city': _dropoffCityController.text,
+            'region': _dropoffRegionController.text,
+          }
+        },
+      },
+      'routeDetails': {
+        'pickupCity': _pickupCityController.text,
+        'pickupRegion': _pickupRegionController.text,
+        'dropoffCity': _dropoffCityController.text,
+        'dropoffRegion': _dropoffRegionController.text,
+      },
+    });
+
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Delivery request submitted successfully!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    Navigator.pop(context);
+
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
 
   Widget _buildLocationButtons() {
     return Card(
@@ -203,6 +275,178 @@ class _NewDeliveryState extends State<NewDelivery> {
               ],
             ),
             const SizedBox(height: 20),
+            
+            // Pickup Location Details
+            Text(
+              'Pickup Location Details',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue[900],
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Pickup City Selection
+            TextFormField(
+              controller: _pickupCityController,
+              decoration: InputDecoration(
+                labelText: 'Pickup City',
+                hintText: 'Select Pickup City',
+                prefixIcon: const Icon(Icons.location_city),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                suffixIcon: PopupMenuButton<String>(
+                  icon: const Icon(Icons.arrow_drop_down),
+                  onSelected: (String value) {
+                    setState(() {
+                      selectedPickupCity = value;
+                      selectedPickupRegion = null;
+                      _pickupCityController.text = value;
+                      _pickupRegionController.clear();
+                    });
+                  },
+                  itemBuilder: (context) => kurdistanCities.keys
+                      .map((city) => PopupMenuItem<String>(
+                            value: city,
+                            child: Text(city),
+                          ))
+                      .toList(),
+                ),
+              ),
+              validator: (value) =>
+                  value?.isEmpty ?? true ? 'Please select pickup city' : null,
+            ),
+            const SizedBox(height: 16),
+            
+            // Pickup Region Selection
+            TextFormField(
+              controller: _pickupRegionController,
+              enabled: selectedPickupCity != null,
+              decoration: InputDecoration(
+                labelText: 'Pickup Region',
+                hintText: selectedPickupCity == null 
+                    ? 'Select a city first' 
+                    : 'Select region in ${selectedPickupCity}',
+                prefixIcon: const Icon(Icons.location_on),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                suffixIcon: selectedPickupCity == null 
+                    ? null 
+                    : PopupMenuButton<String>(
+                        icon: const Icon(Icons.arrow_drop_down),
+                        onSelected: (String value) {
+                          setState(() {
+                            selectedPickupRegion = value;
+                            _pickupRegionController.text = value;
+                          });
+                        },
+                        itemBuilder: (context) => kurdistanCities[selectedPickupCity]!
+                            .map((region) => PopupMenuItem<String>(
+                                  value: region,
+                                  child: Text(region),
+                                ))
+                            .toList(),
+                      ),
+              ),
+              validator: (value) =>
+                  value?.isEmpty ?? true ? 'Please select pickup region' : null,
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Drop-off Location Details
+            Text(
+              'Drop-off Location Details',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.red[900],
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Drop-off City Selection
+            TextFormField(
+              controller: _dropoffCityController,
+              decoration: InputDecoration(
+                labelText: 'Drop-off City',
+                hintText: 'Select Drop-off City',
+                prefixIcon: const Icon(Icons.location_city),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                suffixIcon: PopupMenuButton<String>(
+                  icon: const Icon(Icons.arrow_drop_down),
+                  onSelected: (String value) {
+                    setState(() {
+                      selectedDropoffCity = value;
+                      selectedDropoffRegion = null;
+                      _dropoffCityController.text = value;
+                      _dropoffRegionController.clear();
+                    });
+                  },
+                  itemBuilder: (context) => kurdistanCities.keys
+                      .map((city) => PopupMenuItem<String>(
+                            value: city,
+                            child: Text(city),
+                          ))
+                      .toList(),
+                ),
+              ),
+              validator: (value) =>
+                  value?.isEmpty ?? true ? 'Please select drop-off city' : null,
+            ),
+            const SizedBox(height: 16),
+            
+            // Drop-off Region Selection
+            TextFormField(
+              controller: _dropoffRegionController,
+              enabled: selectedDropoffCity != null,
+              decoration: InputDecoration(
+                labelText: 'Drop-off Region',
+                hintText: selectedDropoffCity == null 
+                    ? 'Select a city first' 
+                    : 'Select region in ${selectedDropoffCity}',
+                prefixIcon: const Icon(Icons.location_on),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                suffixIcon: selectedDropoffCity == null 
+                    ? null 
+                    : PopupMenuButton<String>(
+                        icon: const Icon(Icons.arrow_drop_down),
+                        onSelected: (String value) {
+                          setState(() {
+                            selectedDropoffRegion = value;
+                            _dropoffRegionController.text = value;
+                          });
+                        },
+                        itemBuilder: (context) => kurdistanCities[selectedDropoffCity]!
+                            .map((region) => PopupMenuItem<String>(
+                                  value: region,
+                                  child: Text(region),
+                                ))
+                            .toList(),
+                      ),
+              ),
+              validator: (value) =>
+                  value?.isEmpty ?? true ? 'Please select drop-off region' : null,
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Existing location buttons
             ElevatedButton.icon(
               onPressed: () async {
                 final position = await Geolocator.getCurrentPosition();

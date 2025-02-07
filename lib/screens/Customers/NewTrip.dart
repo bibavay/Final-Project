@@ -37,6 +37,56 @@ class _NewtripState extends State<Newtrip> {
   List<LatLng> routePoints = [];
   final List<String> genderOptions = ['Male', 'Female'];
 
+  final TextEditingController _governorateTextController = TextEditingController();
+  final TextEditingController _districtTextController = TextEditingController();
+  String? selectedGovernorate;
+  String? selectedDistrict;
+
+  final TextEditingController _pickupCityController = TextEditingController();
+  final TextEditingController _pickupRegionController = TextEditingController();
+  final TextEditingController _dropoffCityController = TextEditingController();
+  final TextEditingController _dropoffRegionController = TextEditingController();
+  String? selectedPickupCity;
+  String? selectedPickupRegion;
+  String? selectedDropoffCity;
+  String? selectedDropoffRegion;
+
+  final Map<String, List<String>> kurdistanCities = {
+    'Erbil': [
+      'Erbil City',
+      'Shaqlawa',
+      'Soran',
+      'Koya',
+      'Mergasur',
+      'Choman',
+      'Makhmur',
+    ],
+    'Sulaymaniyah': [
+      'Sulaymaniyah City',
+      'Halabja',
+      'Ranya',
+      'Penjwin',
+      'Dukan',
+      'Chamchamal',
+      'Kalar',
+    ],
+    'Duhok': [
+      'Duhok City',
+      'Zakho',
+      'Amedi',
+      'Akre',
+      'Bardarash',
+      'Shekhan',
+      'Semel',
+    ],
+    'Halabja': [
+      'Halabja City',
+      'Shahrizor',
+      'Khurmal',
+      'Sirwan',
+    ],
+  };
+
   @override
   void initState() {
     super.initState();
@@ -428,6 +478,171 @@ class _NewtripState extends State<Newtrip> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pickup Location Details',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[900],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Pickup City Selection
+                TextFormField(
+                  controller: _pickupCityController,
+                  decoration: InputDecoration(
+                    labelText: 'Pickup City',
+                    hintText: 'Select Pickup City',
+                    prefixIcon: const Icon(Icons.location_city),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    suffixIcon: PopupMenuButton<String>(
+                      icon: const Icon(Icons.arrow_drop_down),
+                      onSelected: (String value) {
+                        setState(() {
+                          selectedPickupCity = value;
+                          selectedPickupRegion = null;
+                          _pickupCityController.text = value;
+                          _pickupRegionController.clear();
+                        });
+                      },
+                      itemBuilder: (context) => kurdistanCities.keys
+                          .map((city) => PopupMenuItem<String>(
+                                value: city,
+                                child: Text(city),
+                              ))
+                          .toList(),
+                    ),
+                  ),
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Please select pickup city' : null,
+                ),
+                const SizedBox(height: 16),
+                // Pickup Region Selection
+                TextFormField(
+                  controller: _pickupRegionController,
+                  enabled: selectedPickupCity != null,
+                  decoration: InputDecoration(
+                    labelText: 'Pickup Region',
+                    hintText: selectedPickupCity == null 
+                        ? 'Select a city first' 
+                        : 'Select region in ${selectedPickupCity}',
+                    prefixIcon: const Icon(Icons.location_on),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    suffixIcon: selectedPickupCity == null 
+                        ? null 
+                        : PopupMenuButton<String>(
+                            icon: const Icon(Icons.arrow_drop_down),
+                            onSelected: (String value) {
+                              setState(() {
+                                selectedPickupRegion = value;
+                                _pickupRegionController.text = value;
+                              });
+                            },
+                            itemBuilder: (context) => kurdistanCities[selectedPickupCity]!
+                                .map((region) => PopupMenuItem<String>(
+                                      value: region,
+                                      child: Text(region),
+                                    ))
+                                .toList(),
+                          ),
+                  ),
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Please select pickup region' : null,
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Drop-off Location Details',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red[900],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Drop-off City Selection
+                TextFormField(
+                  controller: _dropoffCityController,
+                  decoration: InputDecoration(
+                    labelText: 'Drop-off City',
+                    hintText: 'Select Drop-off City',
+                    prefixIcon: const Icon(Icons.location_city),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    suffixIcon: PopupMenuButton<String>(
+                      icon: const Icon(Icons.arrow_drop_down),
+                      onSelected: (String value) {
+                        setState(() {
+                          selectedDropoffCity = value;
+                          selectedDropoffRegion = null;
+                          _dropoffCityController.text = value;
+                          _dropoffRegionController.clear();
+                        });
+                      },
+                      itemBuilder: (context) => kurdistanCities.keys
+                          .map((city) => PopupMenuItem<String>(
+                                value: city,
+                                child: Text(city),
+                              ))
+                          .toList(),
+                    ),
+                  ),
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Please select drop-off city' : null,
+                ),
+                const SizedBox(height: 16),
+                // Drop-off Region Selection
+                TextFormField(
+                  controller: _dropoffRegionController,
+                  enabled: selectedDropoffCity != null,
+                  decoration: InputDecoration(
+                    labelText: 'Drop-off Region',
+                    hintText: selectedDropoffCity == null 
+                        ? 'Select a city first' 
+                        : 'Select region in ${selectedDropoffCity}',
+                    prefixIcon: const Icon(Icons.location_on),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    suffixIcon: selectedDropoffCity == null 
+                        ? null 
+                        : PopupMenuButton<String>(
+                            icon: const Icon(Icons.arrow_drop_down),
+                            onSelected: (String value) {
+                              setState(() {
+                                selectedDropoffRegion = value;
+                                _dropoffRegionController.text = value;
+                              });
+                            },
+                            itemBuilder: (context) => kurdistanCities[selectedDropoffCity]!
+                                .map((region) => PopupMenuItem<String>(
+                                      value: region,
+                                      child: Text(region),
+                                    ))
+                                .toList(),
+                          ),
+                  ),
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Please select drop-off region' : null,
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -473,15 +688,17 @@ class _NewtripState extends State<Newtrip> {
             passenger.destinationLocation?.latitude ?? 0,
             passenger.destinationLocation?.longitude ?? 0,
           ),
+          // Add these new fields
+          'pickupCity': _pickupCityController.text,
+          'pickupRegion': _pickupRegionController.text,
+          'dropoffCity': _dropoffCityController.text,
+          'dropoffRegion': _dropoffRegionController.text,
         };
       }).toList();
 
+      // Rest of the saving logic remains the same
       await FirebaseFirestore.instance.collection('trips').add({
         'userId': user.uid,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'tripDate': Timestamp.fromDate(tripDate!),
-        'tripTime': '${tripTime!.hour}:${tripTime!.minute}',
         'passengers': passengersData,
       });
 
@@ -668,6 +885,12 @@ class _NewtripState extends State<Newtrip> {
 
   @override
   void dispose() {
+    _governorateTextController.dispose();
+    _districtTextController.dispose();
+    _pickupCityController.dispose();
+    _pickupRegionController.dispose();
+    _dropoffCityController.dispose();
+    _dropoffRegionController.dispose();
     for (var controller in ageControllers) {
       controller.dispose();
     }

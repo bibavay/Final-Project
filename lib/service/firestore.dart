@@ -303,3 +303,45 @@ class FirestoreService {
     });
   }
 }
+
+class ActiveOrder {
+  final String id;
+  final String type;
+  final DateTime dateTime;
+  final String status;
+  final Map<String, dynamic> details;
+
+  ActiveOrder({
+    required this.id,
+    required this.type,
+    required this.dateTime,
+    required this.status,
+    required this.details,
+  });
+
+  factory ActiveOrder.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    DateTime orderDateTime;
+    
+    if (data['tripDate'] != null) {
+      orderDateTime = (data['tripDate'] as Timestamp).toDate();
+    } else if (data['deliveryDate'] != null) {
+      orderDateTime = (data['deliveryDate'] as Timestamp).toDate();
+    } else {
+      orderDateTime = DateTime.now();
+    }
+
+    final isTrip = data['passengers'] != null;
+    final details = isTrip 
+        ? data 
+        : {'package': data['package'], 'deliveryTime': data['deliveryTime']};
+
+    return ActiveOrder(
+      id: doc.id,
+      type: isTrip ? 'Trip' : 'Delivery',
+      dateTime: orderDateTime,
+      status: data['status'] ?? 'Pending',
+      details: details,
+    );
+  }
+}
