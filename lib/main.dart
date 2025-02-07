@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/firebase_options.dart';
+import 'package:flutter_application_4th_year_project/screens/Customers/Customers.dart';
 import 'package:flutter_application_4th_year_project/screens/authenticaion/signin_screen.dart';
 
 void main() async {
@@ -24,7 +25,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 5, 133, 114)),
         useMaterial3: true,
       ),
-      home: const SigninScreen(),
+      home: const CustomerDashboard(),
     );
   }
 }
