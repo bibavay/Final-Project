@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_4th_year_project/screens/Customers/pricing_calculator.dart';
 import 'package:latlong2/latlong.dart';
 
 class FirestoreService {
@@ -19,11 +20,13 @@ class FirestoreService {
   }
 
   // Trip Methods
-    Future<String> createTrip({
+  Future<String> createTrip({
     required String userId,
     required DateTime tripDate,
     required TimeOfDay tripTime,
     required List<Map<String, dynamic>> passengers,
+    required String sourceCity,      // Add these parameters
+    required String destinationCity, // for price calculation
   }) async {
     final docRef = await trips.add({
       'userId': userId,
@@ -45,6 +48,11 @@ class FirestoreService {
           'address': passenger['destinationAddress'],
         }
       }).toList(),
+      'price': PricingCalculator.calculateTripPrice(
+        sourceCity: sourceCity,
+        destinationCity: destinationCity,
+        passengerCount: passengers.length,
+      ),
     });
     
     return docRef.id;
@@ -175,6 +183,8 @@ class FirestoreService {
     required double weight,
     required LatLng sourceLocation,
     required LatLng destinationLocation,
+    required String sourceCity,      // Add these parameters
+    required String destinationCity, // for city names
   }) async {
     final docRef = await deliveries.add({
       'userId': userId,
@@ -198,6 +208,14 @@ class FirestoreService {
           destinationLocation.longitude,
         ),
       },
+      'price': PricingCalculator.calculateDeliveryPrice(
+        sourceCity: sourceCity,
+        destinationCity: destinationCity,
+        weight: weight,
+        height: height,
+        width: width,
+        depth: depth,
+      ),
     });
     return docRef.id;
   }
@@ -218,6 +236,8 @@ class FirestoreService {
     required DateTime deliveryDate,
     required TimeOfDay deliveryTime,
     required Map<String, dynamic> package,
+    required String sourceCity,      // Add these parameters
+    required String destinationCity, // for price calculation
   }) async {
     final docRef = await deliveries.add({
       'userId': userId,
@@ -241,6 +261,14 @@ class FirestoreService {
           package['destinationLocation'].longitude,
         ),
       },
+      'price': PricingCalculator.calculateDeliveryPrice(
+        sourceCity: sourceCity,
+        destinationCity: destinationCity,
+        weight: package['dimensions']['weight'],
+        height: package['dimensions']['height'],
+        width: package['dimensions']['width'],
+        depth: package['dimensions']['depth'],
+      ),
     });
     return docRef.id;
   }

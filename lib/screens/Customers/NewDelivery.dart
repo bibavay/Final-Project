@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/screens/Customers/location_picker.dart';
+import 'package:flutter_application_4th_year_project/screens/Customers/pricing_calculator.dart';
 import 'package:flutter_application_4th_year_project/service/firestore.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -627,6 +629,59 @@ class _NewDeliveryState extends State<NewDelivery> {
                 // Package Dimensions Form
                 _buildPackageDimensions(),
                 const SizedBox(height: 16),
+                // Price Preview Card
+                if (_pickupCityController.text.isNotEmpty && 
+                    _dropoffCityController.text.isNotEmpty &&
+                    package.height != null &&
+                    package.width != null &&
+                    package.depth != null &&
+                    package.weight != null)
+                Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.payments, color: Colors.green[700]),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Estimated Price',
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          '${NumberFormat.currency(
+                            symbol: 'IQD ',
+                            decimalDigits: 0,
+                          ).format(PricingCalculator.calculateDeliveryPrice(
+                            sourceCity: _pickupCityController.text,
+                            destinationCity: _dropoffCityController.text,
+                            weight: package.weight!,
+                            height: package.height!,
+                            width: package.width!,
+                            depth: package.depth!,
+                          ))}',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Price includes base fare, weight, and volume calculations',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 _buildLocationButtons(),
                 if (_showMap) ...[
                   const SizedBox(height: 16),

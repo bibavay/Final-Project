@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/screens/Customers/location_picker.dart';
+import 'package:flutter_application_4th_year_project/screens/Customers/pricing_calculator.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -642,6 +644,59 @@ class _NewtripState extends State<Newtrip> {
                       value?.isEmpty ?? true ? 'Please select drop-off region' : null,
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            // Price Preview Card
+            if (_pickupCityController.text.isNotEmpty && 
+                _dropoffCityController.text.isNotEmpty &&
+                passengers.isNotEmpty)
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.payments, color: Colors.green[700]),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Estimated Price',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '${NumberFormat.currency(
+                        symbol: 'IQD ',
+                        decimalDigits: 0,
+                      ).format(PricingCalculator.calculateTripPrice(
+                        sourceCity: _pickupCityController.text,
+                        destinationCity: _dropoffCityController.text,
+                        passengerCount: passengers.length,
+                      ))}',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Price includes base fare and ${passengers.length} passenger${passengers.length > 1 ? 's' : ''}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    if (passengers.length > 1)
+                      Text(
+                        'Group discount applied: ${((passengers.length - 1) * PricingCalculator.additionalPassengerDiscount * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(color: Colors.green),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
