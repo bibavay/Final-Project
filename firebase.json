@@ -21,6 +21,6 @@
   },
   "firestore": {
     "rules": "firestore.rules",
-    "indexes": "n"
+    "indexes": "firestore.indexes.json"
   }
 }
