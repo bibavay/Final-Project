@@ -23,6 +23,12 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
   final _auth = FirebaseAuth.instance;
   late TabController _tabController;
 
+  final List<FeedbackQuestion> questions = [
+    FeedbackQuestion('How would you rate the driver\'s professionalism?'),
+    FeedbackQuestion('How would you rate the driver\'s punctuality?'),
+    FeedbackQuestion('How would you rate the overall service?'),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -45,28 +51,39 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
     return _firestore
         .collection(collection)
         .where('userId', isEqualTo: userId)
+        .where('status', whereIn: ['completed', 'cancelled']) // Add this line
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs.where((doc) {
-            final data = doc.data();
-            final orderDate = (data['tripDate'] ?? data['deliveryDate'] as Timestamp).toDate();
-            final orderTime = data['tripTime'] ?? data['deliveryTime'] as String;
-            final timeComponents = orderTime.split(':');
-            final orderDateTime = DateTime(
-              orderDate.year,
-              orderDate.month,
-              orderDate.day,
-              int.parse(timeComponents[0]),
-              int.parse(timeComponents[1]),
-            );
-            return orderDateTime.isBefore(now);
-          }).map((doc) {
-            final data = doc.data();
-            return {
-              'id': doc.id,
-              ...data,
-            };
-          }).toList();
+          try {
+            return snapshot.docs.map((doc) {
+              final data = doc.data();
+              final orderDate = type == 'Trip' 
+                  ? (data['tripDate'] as Timestamp).toDate()
+                  : (data['deliveryDate'] as Timestamp).toDate();
+              
+              final orderTime = type == 'Trip' 
+                  ? data['tripTime'] as String
+                  : data['deliveryTime'] as String;
+              
+              return {
+                'id': doc.id,
+                ...data,
+                'orderDateTime': DateTime(
+                  orderDate.year,
+                  orderDate.month,
+                  orderDate.day,
+                  int.parse(orderTime.split(':')[0]),
+                  int.parse(orderTime.split(':')[1]),
+                ),
+              };
+            }).where((order) {
+              final orderDateTime = order['orderDateTime'] as DateTime;
+              return orderDateTime.isBefore(now);
+            }).toList();
+          } catch (e) {
+            print('Error processing orders: $e');
+            return [];
+          }
         });
   }
 
@@ -132,29 +149,43 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
           itemCount: snapshot.data!.length,
           padding: const EdgeInsets.all(8),
           itemBuilder: (context, index) {
-            final order = snapshot.data![index];
-            final orderDate = (order['tripDate'] ?? order['deliveryDate'] as Timestamp).toDate();
-            
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ExpansionTile(
-                leading: Icon(
-                  type == 'Trip' ? Icons.directions_car : Icons.local_shipping,
-                  color: Colors.grey,
+            try {
+              final order = snapshot.data![index];
+              final orderDateTime = order['orderDateTime'] as DateTime;
+              
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: ExpansionTile(
+                  leading: Icon(
+                    type == 'Trip' ? Icons.directions_car : Icons.local_shipping,
+                    color: order['status'] == 'cancelled' ? Colors.red : Colors.green,
+                  ),
+                  title: Text(
+                    '${type} #${order['id'].substring(0, 8)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Date: ${DateFormat('MMM dd, yyyy HH:mm').format(orderDateTime)}'),
+                      Text(
+                        'Status: ${order['status']}',
+                        style: TextStyle(
+                          color: order['status'] == 'cancelled' ? Colors.red : Colors.green,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  children: [
+                    _buildOrderDetails(order, type),
+                  ],
                 ),
-                title: Text(
-                  '${type} #${order['id'].substring(0, 8)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text(
-                  'Date: ${DateFormat('MMM dd, yyyy HH:mm').format(orderDate)}\n'
-                  'Status: ${order['status']}',
-                ),
-                children: [
-                  _buildOrderDetails(order, type),
-                ],
-              ),
-            );
+              );
+            } catch (e) {
+              print('Error building order item: $e');
+              return const SizedBox.shrink();
+            }
           },
         );
       },
@@ -221,24 +252,23 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
     );
   }
 
-  // Update the feedback questions to be more driver-focused
   void _showFeedbackDialog(Map<String, dynamic> order, String type) {
-    final questions = [
-      FeedbackQuestion('How would you rate the driver\'s professionalism and behavior?'),
-      FeedbackQuestion('How would you rate the driver\'s driving skills?'),
-      FeedbackQuestion('How would you rate the driver\'s punctuality?'),
-      FeedbackQuestion('How would you rate the vehicle cleanliness and condition?'),
-      FeedbackQuestion('How would you rate the overall service quality?'),
-    ];
+    // Reset ratings
+    for (var question in questions) {
+      question.rating = 0;
+    }
 
     final TextEditingController commentController = TextEditingController();
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text('Rate ${order['driverName'] ?? 'Driver'} (${type})', 
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(
+            'Rate your ${type.toLowerCase()}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -250,8 +280,8 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
                   controller: commentController,
                   maxLines: 3,
                   decoration: InputDecoration(
-                    labelText: 'Additional Comments (Optional)',
-                    hintText: 'Share your experience with the driver...',
+                    labelText: 'Additional Comments',
+                    hintText: 'Share your experience...',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -266,13 +296,31 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () => _submitFeedback(
-                order, 
-                type, 
-                questions, 
-                commentController.text
+              onPressed: () {
+                if (questions.any((q) => q.rating == 0)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please rate all questions'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                _submitFeedback(
+                  order,
+                  type,
+                  questions,
+                  commentController.text,
+                );
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
               ),
-              child: const Text('Submit'),
+              child: const Text(
+                'Submit',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -280,14 +328,19 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildRatingQuestion(FeedbackQuestion question, Function setState) {
+  Widget _buildRatingQuestion(FeedbackQuestion question, StateSetter setState) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(question.question, 
-            style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text(
+            question.question,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500
+            ),
+          ),
           const SizedBox(height: 8),
           RatingBar.builder(
             initialRating: question.rating,
@@ -302,7 +355,9 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
               color: Colors.amber,
             ),
             onRatingUpdate: (rating) {
-              setState(() => question.rating = rating);
+              setState(() {
+                question.rating = rating;
+              });
             },
           ),
         ],
@@ -317,53 +372,32 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
     String comment,
   ) async {
     try {
-      final batch = _firestore.batch();
-      final driverId = order['driverId'];
+      final collection = type.toLowerCase() + 's';
+      final orderRef = _firestore.collection(collection).doc(order['id']);
       
-      // Create the feedback document
-      final feedbackRef = _firestore.collection('feedback').doc();
-      batch.set(feedbackRef, {
-        'orderId': order['id'],
-        'orderType': type,
-        'userId': _auth.currentUser?.uid,
-        'driverId': driverId,
-        'ratings': questions.map((q) => {
-          'question': q.question,
-          'rating': q.rating,
-        }).toList(),
-        'comment': comment,
-        'createdAt': FieldValue.serverTimestamp(),
+      await _firestore.runTransaction((transaction) async {
+        // Create feedback document
+        final feedbackRef = _firestore.collection('feedback').doc();
+        transaction.set(feedbackRef, {
+          'orderId': order['id'],
+          'orderType': type,
+          'userId': _auth.currentUser?.uid,
+          'ratings': questions.map((q) => {
+            'question': q.question,
+            'rating': q.rating,
+          }).toList(),
+          'comment': comment,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Update order with feedback status
+        transaction.update(orderRef, {
+          'feedbackGiven': true,
+          'averageRating': questions.map((q) => q.rating).reduce((a, b) => a + b) / questions.length,
+        });
       });
-
-      // Update driver's average ratings
-      final driverRef = _firestore.collection('drivers').doc(driverId);
-      final averageRatings = {
-        'professionalism': questions[0].rating,
-        'drivingSkills': questions[1].rating,
-        'punctuality': questions[2].rating,
-        'vehicleCondition': questions[3].rating,
-        'overallRating': questions[4].rating,
-      };
-
-      batch.update(driverRef, {
-        'ratings': FieldValue.arrayUnion([averageRatings]),
-        'totalRatings': FieldValue.increment(1),
-        'averageRating': FieldValue.increment(
-          questions.map((q) => q.rating).reduce((a, b) => a + b) / questions.length
-        ),
-      });
-
-      // Mark the order as rated
-      final orderRef = _firestore.collection('${type.toLowerCase()}s').doc(order['id']);
-      batch.update(orderRef, {
-        'feedbackGiven': true,
-        'rating': questions.map((q) => q.rating).reduce((a, b) => a + b) / questions.length,
-      });
-
-      await batch.commit();
 
       if (!mounted) return;
-      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Thank you for your feedback!'),
@@ -371,6 +405,8 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
         ),
       );
     } catch (e) {
+      print('Error submitting feedback: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error submitting feedback: $e'),

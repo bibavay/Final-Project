@@ -92,6 +92,30 @@ class _NewDeliveryState extends State<NewDelivery> {
 
   // Add Firestore instance
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  double? estimatedPrice;
+  final Map<String, Map<String, double>> cityDistances = {
+    'Erbil': {
+      'Sulaymaniyah': 195.0,
+      'Duhok': 155.0,
+      'Halabja': 240.0,
+    },
+    'Sulaymaniyah': {
+      'Erbil': 195.0,
+      'Duhok': 340.0,
+      'Halabja': 75.0,
+    },
+    'Duhok': {
+      'Erbil': 155.0,
+      'Sulaymaniyah': 340.0,
+      'Halabja': 385.0,
+    },
+    'Halabja': {
+      'Erbil': 240.0,
+      'Sulaymaniyah': 75.0,
+      'Duhok': 385.0,
+    },
+  };
   
   @override
   void initState() {
@@ -308,7 +332,9 @@ class _NewDeliveryState extends State<NewDelivery> {
                       selectedPickupRegion = null;
                       _pickupCityController.text = value;
                       _pickupRegionController.clear();
+                      _calculateEstimatedPrice();
                     });
+                    _calculateEstimatedPrice();
                   },
                   itemBuilder: (context) => kurdistanCities.keys
                       .map((city) => PopupMenuItem<String>(
@@ -393,7 +419,9 @@ class _NewDeliveryState extends State<NewDelivery> {
                       selectedDropoffRegion = null;
                       _dropoffCityController.text = value;
                       _dropoffRegionController.clear();
+                      _calculateEstimatedPrice();
                     });
+                    _calculateEstimatedPrice();
                   },
                   itemBuilder: (context) => kurdistanCities.keys
                       .map((city) => PopupMenuItem<String>(
@@ -716,6 +744,8 @@ class _NewDeliveryState extends State<NewDelivery> {
                   ),
                 ],
                 const SizedBox(height: 16),
+                _buildPriceEstimation(),
+                const SizedBox(height: 16),
                 // Confirm Button
                 Container(
                   width: 300,
@@ -808,6 +838,7 @@ class _NewDeliveryState extends State<NewDelivery> {
                     onChanged: (value) {
                       package.height = double.tryParse(value);
                       _checkPackageComplete();
+                      _calculateEstimatedPrice();
                     },
                   ),
                 ),
@@ -827,6 +858,7 @@ class _NewDeliveryState extends State<NewDelivery> {
                     onChanged: (value) {
                       package.width = double.tryParse(value);
                       _checkPackageComplete();
+                      _calculateEstimatedPrice();
                     },
                   ),
                 ),
@@ -850,6 +882,7 @@ class _NewDeliveryState extends State<NewDelivery> {
                     onChanged: (value) {
                       package.depth = double.tryParse(value);
                       _checkPackageComplete();
+                      _calculateEstimatedPrice();
                     },
                   ),
                 ),
@@ -869,11 +902,94 @@ class _NewDeliveryState extends State<NewDelivery> {
                     onChanged: (value) {
                       package.weight = double.tryParse(value);
                       _checkPackageComplete();
+                      _calculateEstimatedPrice();
                     },
                   ),
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _calculateEstimatedPrice() {
+    if (selectedPickupCity == null || 
+        selectedDropoffCity == null ||
+        package.weight == null ||
+        package.height == null ||
+        package.width == null ||
+        package.depth == null) {
+      return;
+    }
+
+    // Base price
+    double basePrice = 5000.0; // Base price in IQD
+
+    // Calculate distance factor
+    double distance = 0.0;
+    if (selectedPickupCity != selectedDropoffCity) {
+      distance = cityDistances[selectedPickupCity]?[selectedDropoffCity] ?? 0.0;
+    }
+    double distanceFactor = distance * 25.0; // 25 IQD per km
+
+    // Calculate volume in cubic centimeters
+    double volume = package.height! * package.width! * package.depth!;
+    double volumeFactor = volume * 0.1; // 0.1 IQD per cubic cm
+
+    // Weight factor
+    double weightFactor = package.weight! * 1000.0; // 1000 IQD per kg
+
+    // Calculate total price
+    setState(() {
+      estimatedPrice = basePrice + distanceFactor + volumeFactor + weightFactor;
+    });
+  }
+
+  Widget _buildPriceEstimation() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.attach_money, color: Colors.green[700]),
+                const SizedBox(width: 8),
+                const Text(
+                  'Estimated Price',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                estimatedPrice == null 
+                    ? 'Please fill in all details to see the estimated price'
+                    : '${NumberFormat("#,##0").format(estimatedPrice)} IQD',
+                style: TextStyle(
+                  fontSize: estimatedPrice == null ? 14 : 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[700],
+                ),
+              ),
+            ),
+            if (estimatedPrice != null) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Note: Final price may vary based on actual weight and dimensions',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
           ],
         ),
       ),

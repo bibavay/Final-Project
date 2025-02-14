@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
 class FirestoreService {
@@ -236,6 +237,8 @@ class FirestoreService {
       'deliveryDate': Timestamp.fromDate(deliveryDate),
       'deliveryTime': '${deliveryTime.hour}:${deliveryTime.minute}',
       'package': package,
+      'pickupCity': sourceCity,        // Add this
+      'dropoffCity': destinationCity,  // Add this
     });
     return docRef.id;
   }
@@ -317,26 +320,45 @@ class ActiveOrder {
   factory ActiveOrder.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     DateTime orderDateTime;
+    Map<String, dynamic> details;
+    String type;
+    String timeStr;
     
     if (data['tripDate'] != null) {
       orderDateTime = (data['tripDate'] as Timestamp).toDate();
-    } else if (data['deliveryDate'] != null) {
-      orderDateTime = (data['deliveryDate'] as Timestamp).toDate();
+      timeStr = data['tripTime'] ?? '00:00';
+      type = 'Trip';
+      details = {
+        ...data,
+        'formattedDateTime': _formatDateTime(orderDateTime, timeStr),
+      };
     } else {
-      orderDateTime = DateTime.now();
+      orderDateTime = (data['deliveryDate'] as Timestamp).toDate();
+      timeStr = data['deliveryTime'] ?? '00:00';
+      type = 'Delivery';
+      details = {
+        'package': data['package'] ?? {},
+        'deliveryTime': timeStr,
+        'pickupCity': data['pickupCity'] ?? 'N/A',
+        'dropoffCity': data['dropoffCity'] ?? 'N/A',
+        'sourceLocation': data['package']?['sourceLocation'],
+        'destinationLocation': data['package']?['destinationLocation'],
+        'formattedDateTime': _formatDateTime(orderDateTime, timeStr),
+      };
     }
-
-    final isTrip = data['passengers'] != null;
-    final details = isTrip 
-        ? data 
-        : {'package': data['package'], 'deliveryTime': data['deliveryTime']};
 
     return ActiveOrder(
       id: doc.id,
-      type: isTrip ? 'Trip' : 'Delivery',
+      type: type,
       dateTime: orderDateTime,
       status: data['status'] ?? 'Pending',
       details: details,
     );
+  }
+
+  // Add this static helper method to format the date and time
+  static String _formatDateTime(DateTime date, String timeStr) {
+    final formattedDate = DateFormat('MMM dd, yyyy').format(date);
+    return '$formattedDate at $timeStr';
   }
 }

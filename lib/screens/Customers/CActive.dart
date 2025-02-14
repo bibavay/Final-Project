@@ -20,6 +20,9 @@ class ActiveOrder {
 
   factory ActiveOrder.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    print('Raw Firestore data: $data'); // Debug print
+    print('Delivery Time: ${data['deliveryTime']}'); // Add this debug print
+    
     DateTime orderDateTime;
     Map<String, dynamic> details;
     String type;
@@ -27,16 +30,23 @@ class ActiveOrder {
     if (data['tripDate'] != null) {
       orderDateTime = (data['tripDate'] as Timestamp).toDate();
       type = 'Trip';
-      details = data; // Keep all data for trips
+      details = data;
     } else {
       orderDateTime = (data['deliveryDate'] as Timestamp).toDate();
       type = 'Delivery';
       details = {
-        'package': data['package'],
+        'package': data['package'] ?? {},
         'deliveryTime': data['deliveryTime'],
-        'sourceLocation': data['package']?['sourceLocation'],
-        'destinationLocation': data['package']?['destinationLocation'],
+        // Map the location data from the package field
+        'pickupCity': data['package']?['locations']?['source']?['city'] ?? 'N/A',
+        'pickupRegion': data['package']?['locations']?['source']?['region'] ?? 'N/A',
+        'dropoffCity': data['package']?['locations']?['destination']?['city'] ?? 'N/A',
+        'dropoffRegion': data['package']?['locations']?['destination']?['region'] ?? 'N/A',
+        'sourceLocation': data['package']?['locations']?['source']?['coordinates'],
+        'destinationLocation': data['package']?['locations']?['destination']?['coordinates'],
       };
+      
+      print('Mapped delivery details: $details'); // Debug print
     }
 
     return ActiveOrder(
@@ -46,7 +56,7 @@ class ActiveOrder {
       status: data['status'] ?? 'Pending',
       details: details,
     );
-  }
+}
 }
 
 class CActive extends StatefulWidget {
@@ -74,53 +84,88 @@ class _CActiveState extends State<CActive> with SingleTickerProviderStateMixin {
   }
 
   Stream<List<ActiveOrder>> _getActiveOrders(String type) {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return Stream.value([]);
+  final userId = _auth.currentUser?.uid;
+  if (userId == null) return Stream.value([]);
 
-    final collection = type == 'Trip' ? 'trips' : 'deliveries';
-    final now = DateTime.now();
-    
-    return _firestore
-        .collection(collection)
-        .where('userId', isEqualTo: userId)
-        .where('status', whereIn: ['pending', 'confirmed', 'in_progress'])
-        .snapshots()
-        .map((snapshot) {
-          final orders = snapshot.docs
-              .map((doc) => ActiveOrder.fromFirestore(doc))
-              .where((order) {
-                try {
-                  final timeStr = type == 'Trip' 
-                      ? order.details['tripTime'] 
-                      : order.details['deliveryTime'];
-                  
-                  if (timeStr == null) return false;
-                  
-                  final timeParts = timeStr.split(':');
-                  if (timeParts.length != 2) return false;
+  final collection = type == 'Trip' ? 'trips' : 'deliveries';
+  final now = DateTime.now();
+  
+  return _firestore
+      .collection(collection)
+      .where('userId', isEqualTo: userId)
+      .where('status', whereIn: ['pending', 'confirmed', 'in_progress'])
+      .snapshots()
+      .map((snapshot) {
+        final orders = snapshot.docs
+            .map((doc) => ActiveOrder.fromFirestore(doc))
+            .where((order) {
+              // Check if order is not null
+              if (order == null) return false;
 
-                  final orderDateTime = DateTime(
-                    order.dateTime.year,
-                    order.dateTime.month,
-                    order.dateTime.day,
-                    int.parse(timeParts[0]),
-                    int.parse(timeParts[1]),
-                  );
-                  
-                  // Show orders that are not expired yet
-                  return orderDateTime.isAfter(now);
-                } catch (e) {
-                  print('Error processing order ${order.id}: $e');
+              try {
+                final timeStr = type == 'Trip' 
+                    ? order.details['tripTime'] 
+                    : order.details['deliveryTime'];
+                
+                if (timeStr == null) return false;
+                
+                final timeParts = timeStr.split(':');
+                if (timeParts.length != 2) return false;
+
+                final orderDateTime = DateTime(
+                  order.dateTime.year,
+                  order.dateTime.month,
+                  order.dateTime.day,
+                  int.parse(timeParts[0]),
+                  int.parse(timeParts[1]),
+                );
+
+                // If order time has passed, move it to history
+                if (orderDateTime.isBefore(now)) {
+                  _moveToHistory(order);
                   return false;
                 }
-              })
-              .toList();
-          
-          // Sort by date
-          orders.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-          return orders;
-        });
+
+                return true;
+              } catch (e) {
+                print('Error processing time for order ${order.id}: $e');
+                return false;
+              }
+            })
+            .toList();
+        
+        orders.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+        return orders;
+      });
+}
+
+Future<void> _moveToHistory(ActiveOrder order) async {
+  try {
+    final collection = order.type == 'Trip' ? 'trips' : 'deliveries';
+    final docRef = _firestore.collection(collection).doc(order.id);
+    
+    // Update the status to 'completed' if it's not already cancelled
+    if (order.status != 'cancelled') {
+      await docRef.update({
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Copy the order to history collection
+    await _firestore.collection('history').add({
+      ...order.details,
+      'originalId': order.id,
+      'type': order.type,
+      'userId': _auth.currentUser?.uid,
+      'status': order.status == 'cancelled' ? 'cancelled' : 'completed',
+      'movedToHistoryAt': FieldValue.serverTimestamp(),
+    });
+
+  } catch (e) {
+    print('Error moving order to history: $e');
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -233,6 +278,36 @@ class _CActiveState extends State<CActive> with SingleTickerProviderStateMixin {
           if (order.type == 'Trip') ...[
             const Text('Trip Details:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
+            // Add Trip Location Details
+            Text('Pickup Location:', style: TextStyle(fontWeight: FontWeight.w600)),
+            if (order.details['pickupCity'] != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('City: ${order.details['pickupCity']}'),
+                    Text('Region: ${order.details['pickupRegion'] ?? 'N/A'}'),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text('Drop-off Location:', style: TextStyle(fontWeight: FontWeight.w600)),
+            if (order.details['dropoffCity'] != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('City: ${order.details['dropoffCity']}'),
+                    Text('Region: ${order.details['dropoffRegion'] ?? 'N/A'}'),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            // Existing passenger details
             if (order.details['passengers'] != null) ...[
               for (var passenger in order.details['passengers'])
                 Column(
@@ -246,12 +321,6 @@ class _CActiveState extends State<CActive> with SingleTickerProviderStateMixin {
                         children: [
                           Text('Gender: ${passenger['gender'] ?? 'N/A'}'),
                           Text('Age: ${passenger['age']?.toString() ?? 'N/A'}'),
-                          if (passenger['sourceLocation'] != null)
-                            Text('Pickup: (${(passenger['sourceLocation'] as GeoPoint).latitude}, '
-                                '${(passenger['sourceLocation'] as GeoPoint).longitude})'),
-                          if (passenger['destinationLocation'] != null)
-                            Text('Drop-off: (${(passenger['destinationLocation'] as GeoPoint).latitude}, '
-                                '${(passenger['destinationLocation'] as GeoPoint).longitude})'),
                         ],
                       ),
                     ),
@@ -260,10 +329,45 @@ class _CActiveState extends State<CActive> with SingleTickerProviderStateMixin {
                 ),
             ],
           ] else ...[
+            // Delivery Details
             const Text('Delivery Details:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
+            // Add Delivery Location Details
+            Text('Pickup Location:', style: TextStyle(fontWeight: FontWeight.w600)),
+            if (order.details['pickupCity'] != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('City: ${order.details['pickupCity']}'),
+                    Text('Region: ${order.details['pickupRegion'] ?? 'N/A'}'),
+                    
+                    ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text('Drop-off Location:', style: TextStyle(fontWeight: FontWeight.w600)),
+            if (order.details['dropoffCity'] != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('City: ${order.details['dropoffCity']}'),
+                    Text('Region: ${order.details['dropoffRegion'] ?? 'N/A'}'),
+                    if (order.details['package']?['destinationLocation'] != null)
+                      Text('Coordinates: (${(order.details['package']['destinationLocation'] as GeoPoint).latitude}, '
+                          '${(order.details['package']['destinationLocation'] as GeoPoint).longitude})'),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            // Existing package details
             if (order.details['package'] != null) ...[
-              Text('Dimensions:'),
+              Text('Package Dimensions:', style: TextStyle(fontWeight: FontWeight.w600)),
               Padding(
                 padding: const EdgeInsets.only(left: 16),
                 child: Column(
@@ -276,18 +380,12 @@ class _CActiveState extends State<CActive> with SingleTickerProviderStateMixin {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              if (order.details['package']['sourceLocation'] != null)
-                Text('Pickup: (${(order.details['package']['sourceLocation'] as GeoPoint).latitude}, '
-                    '${(order.details['package']['sourceLocation'] as GeoPoint).longitude})'),
-              if (order.details['package']['destinationLocation'] != null)
-                Text('Drop-off: (${(order.details['package']['destinationLocation'] as GeoPoint).latitude}, '
-                    '${(order.details['package']['destinationLocation'] as GeoPoint).longitude})'),
             ],
+           
           ],
           const SizedBox(height: 16),
           _detailRow('Status', order.status),
-          _detailRow('Date', DateFormat('MMM dd, yyyy HH:mm').format(order.dateTime)),
+          _detailRow('Date & Time', order.details['formattedDateTime'] ?? 'N/A'),
         ],
       ),
     );

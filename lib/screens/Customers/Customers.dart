@@ -76,7 +76,7 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
             Colors.purple,
             () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const CHistory()),
+              MaterialPageRoute(builder: (context) => CHistory()),
             ),
           ),
         ],
