@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/screens/Customers/location_picker.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/pricing_calculator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -646,58 +645,6 @@ class _NewtripState extends State<Newtrip> {
               ],
             ),
             const SizedBox(height: 16),
-            // Price Preview Card
-            if (_pickupCityController.text.isNotEmpty && 
-                _dropoffCityController.text.isNotEmpty &&
-                passengers.isNotEmpty)
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.payments, color: Colors.green[700]),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Estimated Price',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '${NumberFormat.currency(
-                        symbol: 'IQD ',
-                        decimalDigits: 0,
-                      ).format(PricingCalculator.calculateTripPrice(
-                        sourceCity: _pickupCityController.text,
-                        destinationCity: _dropoffCityController.text,
-                        passengerCount: passengers.length,
-                      ))}',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Price includes base fare and ${passengers.length} passenger${passengers.length > 1 ? 's' : ''}',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    if (passengers.length > 1)
-                      Text(
-                        'Group discount applied: ${((passengers.length - 1) * PricingCalculator.additionalPassengerDiscount * 100).toStringAsFixed(0)}%',
-                        style: const TextStyle(color: Colors.green),
-                      ),
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -743,7 +690,6 @@ class _NewtripState extends State<Newtrip> {
             passenger.destinationLocation?.latitude ?? 0,
             passenger.destinationLocation?.longitude ?? 0,
           ),
-          // Add these new fields
           'pickupCity': _pickupCityController.text,
           'pickupRegion': _pickupRegionController.text,
           'dropoffCity': _dropoffCityController.text,
@@ -751,17 +697,24 @@ class _NewtripState extends State<Newtrip> {
         };
       }).toList();
 
-      // Rest of the saving logic remains the same
       await FirebaseFirestore.instance.collection('trips').add({
         'userId': user.uid,
+        'tripDate': Timestamp.fromDate(tripDate!),
+        'tripTime': '${tripTime!.hour}:${tripTime!.minute}',
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
         'passengers': passengersData,
+        'pickupCity': _pickupCityController.text,
+        'pickupRegion': _pickupRegionController.text,
+        'dropoffCity': _dropoffCityController.text,
+        'dropoffRegion': _dropoffRegionController.text,
       });
 
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Delivery request submitted successfully!'),
+          content: Text('Trip request submitted successfully!'),
           backgroundColor: Colors.green,
         ),
       );

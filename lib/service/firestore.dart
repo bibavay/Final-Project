@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/pricing_calculator.dart';
 import 'package:latlong2/latlong.dart';
 
 class FirestoreService {
@@ -25,8 +24,9 @@ class FirestoreService {
     required DateTime tripDate,
     required TimeOfDay tripTime,
     required List<Map<String, dynamic>> passengers,
-    required String sourceCity,      // Add these parameters
-    required String destinationCity, // for price calculation
+    required String sourceCity,
+    required String destinationCity,
+    required String carType,
   }) async {
     final docRef = await trips.add({
       'userId': userId,
@@ -48,11 +48,7 @@ class FirestoreService {
           'address': passenger['destinationAddress'],
         }
       }).toList(),
-      'price': PricingCalculator.calculateTripPrice(
-        sourceCity: sourceCity,
-        destinationCity: destinationCity,
-        passengerCount: passengers.length,
-      ),
+      'carType': carType,
     });
     
     return docRef.id;
@@ -183,8 +179,8 @@ class FirestoreService {
     required double weight,
     required LatLng sourceLocation,
     required LatLng destinationLocation,
-    required String sourceCity,      // Add these parameters
-    required String destinationCity, // for city names
+    required String sourceCity,
+    required String destinationCity,
   }) async {
     final docRef = await deliveries.add({
       'userId': userId,
@@ -208,14 +204,6 @@ class FirestoreService {
           destinationLocation.longitude,
         ),
       },
-      'price': PricingCalculator.calculateDeliveryPrice(
-        sourceCity: sourceCity,
-        destinationCity: destinationCity,
-        weight: weight,
-        height: height,
-        width: width,
-        depth: depth,
-      ),
     });
     return docRef.id;
   }
@@ -236,39 +224,18 @@ class FirestoreService {
     required DateTime deliveryDate,
     required TimeOfDay deliveryTime,
     required Map<String, dynamic> package,
-    required String sourceCity,      // Add these parameters
-    required String destinationCity, // for price calculation
+    required String sourceCity,
+    required String destinationCity,
   }) async {
+    final dimensions = package['dimensions'] as Map<String, dynamic>;
+    
     final docRef = await deliveries.add({
       'userId': userId,
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
       'deliveryDate': Timestamp.fromDate(deliveryDate),
       'deliveryTime': '${deliveryTime.hour}:${deliveryTime.minute}',
-      'package': {
-        'dimensions': {
-          'height': package['dimensions']['height'],
-          'width': package['dimensions']['width'],
-          'depth': package['dimensions']['depth'],
-          'weight': package['dimensions']['weight'],
-        },
-        'sourceLocation': GeoPoint(
-          package['sourceLocation'].latitude,
-          package['sourceLocation'].longitude,
-        ),
-        'destinationLocation': GeoPoint(
-          package['destinationLocation'].latitude,
-          package['destinationLocation'].longitude,
-        ),
-      },
-      'price': PricingCalculator.calculateDeliveryPrice(
-        sourceCity: sourceCity,
-        destinationCity: destinationCity,
-        weight: package['dimensions']['weight'],
-        height: package['dimensions']['height'],
-        width: package['dimensions']['width'],
-        depth: package['dimensions']['depth'],
-      ),
+      'package': package,
     });
     return docRef.id;
   }
