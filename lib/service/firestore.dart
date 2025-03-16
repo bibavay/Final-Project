@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
 class FirestoreService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   // Collections
   final CollectionReference users = FirebaseFirestore.instance.collection('users');
   final CollectionReference trips = FirebaseFirestore.instance.collection('trips');
@@ -294,10 +295,70 @@ class FirestoreService {
     });
   }
 
-  Future<void> completeDelivery(String deliveryId) async {
+  Future<void> completeDelivery(String deliveryId, {
+    required String driverId,
+    required String customer,
+    required String pickupLocation,
+    required String dropLocation,
+    required double amount,
+  }) async {
     await deliveries.doc(deliveryId).update({
+      'driverId': driverId,
       'status': 'completed',
       'completedAt': FieldValue.serverTimestamp(),
+      'customer': customer,
+      'pickupLocation': pickupLocation,
+      'dropLocation': dropLocation,
+      'amount': amount,
+      'type': 'Delivery'
+    });
+  }
+
+  Future<void> completeTrip(String tripId, {
+    required String driverId,
+    required String customer,
+    required String pickupLocation,
+    required String dropLocation,
+    required double amount,
+  }) async {
+    await trips.doc(tripId).update({
+      'driverId': driverId,
+      'status': 'completed',
+      'completedAt': FieldValue.serverTimestamp(),
+      'customer': customer,
+      'pickupLocation': pickupLocation,
+      'dropLocation': dropLocation,
+      'amount': amount,
+      'type': 'Trip'
+    });
+  }
+
+  // In firestore.dart
+Stream<QuerySnapshot> getCompletedTrips(String driverId, {String? type}) {
+  Query query = _firestore
+      .collection('trips') // Or whatever your collection is called
+      .where('driverId', isEqualTo: driverId)
+      .where('status', isEqualTo: 'completed');
+      
+  if (type != null) {
+    query = query.where('type', isEqualTo: type);
+  }
+  
+  return query.snapshots();
+}
+
+  Future<void> addFeedback(String tripId, String feedbackContent, double rating) async {
+    // First create the feedback document
+    final feedbackRef = _firestore.collection('feedback').add({
+      'tripId': tripId,
+      'content': feedbackContent,
+      'rating': rating,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    // Then update the trip with the feedback reference
+    await trips.doc(tripId).update({
+      'feedbackId': (await feedbackRef).id
     });
   }
 }
@@ -362,3 +423,46 @@ class ActiveOrder {
     return '$formattedDate at $timeStr';
   }
 }
+
+final Map<String, dynamic> newOrder = {
+  "pickupLocation": {
+    "latitude": 51.5074,
+    "longitude": -0.1278
+  },
+  "dropoffLocation": {
+    "latitude": 51.5074,
+    "longitude": -0.1278
+  },
+  "type": "Trip",
+  "status": "confirmed",
+  "passengers": [
+    {
+      "id": 1,
+      "name": "Passenger 1",
+      "pickupLocation": {
+        "latitude": 37.7749,
+        "longitude": -122.4194
+      },
+      "dropoffLocation": {
+        "latitude": 37.7858,
+        "longitude": -122.4064
+      }
+    },
+    {
+      "id": 2,
+      "name": "Passenger 2",
+      "pickupLocation": {
+        "latitude": 37.7849,
+        "longitude": -122.4294
+      },
+      "dropoffLocation": {
+        "latitude": 37.7958,
+        "longitude": -122.4164
+      }
+    }
+  ],
+  "passengerDetails": {
+    "name": "John Doe",
+    "phone": "+1234567890"
+  }
+};

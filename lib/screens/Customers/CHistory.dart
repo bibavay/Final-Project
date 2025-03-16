@@ -23,11 +23,20 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
   final _auth = FirebaseAuth.instance;
   late TabController _tabController;
 
-  final List<FeedbackQuestion> questions = [
-    FeedbackQuestion('How would you rate the driver\'s professionalism?'),
-    FeedbackQuestion('How would you rate the driver\'s punctuality?'),
-    FeedbackQuestion('How would you rate the overall service?'),
-  ];
+  final Map<String, List<FeedbackQuestion>> questionsByType = {
+    'Trip': [
+      FeedbackQuestion('How would you rate the driver\'s professionalism?'),
+      FeedbackQuestion('How would you rate the driver\'s punctuality?'),
+      FeedbackQuestion('How was the vehicle condition?'),
+      FeedbackQuestion('How would you rate the overall service?'),
+    ],
+    'Delivery': [
+      FeedbackQuestion('How would you rate the delivery service?'),
+      FeedbackQuestion('Was the package handled with care?'),
+      FeedbackQuestion('How would you rate the delivery time?'),
+      FeedbackQuestion('How would you rate the overall service?'),
+    ],
+  };
 
   @override
   void initState() {
@@ -51,12 +60,15 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
     return _firestore
         .collection(collection)
         .where('userId', isEqualTo: userId)
-        .where('status', whereIn: ['completed', 'cancelled']) // Add this line
+        .where('status', whereIn: ['completed', 'cancelled'])
         .snapshots()
         .map((snapshot) {
           try {
             return snapshot.docs.map((doc) {
               final data = doc.data();
+              // Debug print to check document ID
+              print('Processing ${type} document with ID: ${doc.id}');
+              
               final orderDate = type == 'Trip' 
                   ? (data['tripDate'] as Timestamp).toDate()
                   : (data['deliveryDate'] as Timestamp).toDate();
@@ -65,9 +77,10 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
                   ? data['tripTime'] as String
                   : data['deliveryTime'] as String;
               
-              return {
-                'id': doc.id,
+              // Include the document ID in the map
+              Map<String, dynamic> orderMap = {
                 ...data,
+                'id': doc.id,  // Ensure ID is included and not overwritten
                 'orderDateTime': DateTime(
                   orderDate.year,
                   orderDate.month,
@@ -76,6 +89,11 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
                   int.parse(orderTime.split(':')[1]),
                 ),
               };
+              
+              // Debug print to verify the ID is included
+              print('Processed order map ID: ${orderMap['id']}');
+              
+              return orderMap;
             }).where((order) {
               final orderDateTime = order['orderDateTime'] as DateTime;
               return orderDateTime.isBefore(now);
@@ -230,14 +248,30 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
           Text('Status: ${order['status']}'),
           Text('Created: ${DateFormat('MMM dd, yyyy HH:mm').format((order['createdAt'] as Timestamp).toDate())}'),
           
-          // Add feedback button if feedback hasn't been given
-          if (!(order['feedbackGiven'] ?? false))
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0),
-              child: ElevatedButton.icon(
+          if (order['status'] == 'completed') ...[
+            const SizedBox(height: 16),
+            if (order['feedbackGiven'] == true && order['averageRating'] != null) ...[
+              Row(
+                children: [
+                  const Icon(Icons.star, color: Colors.amber),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Rating: ${order['averageRating'].toStringAsFixed(1)}/5.0',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              ElevatedButton.icon(
                 onPressed: () => _showFeedbackDialog(order, type),
                 icon: const Icon(Icons.star_rate, color: Colors.white),
-                label: const Text('Rate this service', style: TextStyle(color: Colors.white)),
+                label: Text(
+                  'Rate this ${type.toLowerCase()} service',
+                  style: const TextStyle(color: Colors.white),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber,
                   minimumSize: const Size(double.infinity, 45),
@@ -246,13 +280,15 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
                   ),
                 ),
               ),
-            ),
+            ],
+          ],
         ],
       ),
     );
   }
 
   void _showFeedbackDialog(Map<String, dynamic> order, String type) {
+    final questions = questionsByType[type] ?? [];
     // Reset ratings
     for (var question in questions) {
       question.rating = 0;
@@ -366,53 +402,83 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
   }
 
   Future<void> _submitFeedback(
-    Map<String, dynamic> order,
-    String type,
-    List<FeedbackQuestion> questions,
-    String comment,
-  ) async {
-    try {
-      final collection = type.toLowerCase() + 's';
-      final orderRef = _firestore.collection(collection).doc(order['id']);
-      
-      await _firestore.runTransaction((transaction) async {
-        // Create feedback document
-        final feedbackRef = _firestore.collection('feedback').doc();
-        transaction.set(feedbackRef, {
-          'orderId': order['id'],
-          'orderType': type,
-          'userId': _auth.currentUser?.uid,
-          'ratings': questions.map((q) => {
-            'question': q.question,
-            'rating': q.rating,
-          }).toList(),
-          'comment': comment,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+  Map<String, dynamic> order,
+  String type,
+  List<FeedbackQuestion> questions,
+  String comment,
+) async {
+  try {
+    // Enhanced debug information
+    print('Submitting feedback for:');
+    print('Order ID: ${order['id']}');
+    print('Type: $type');
 
-        // Update order with feedback status
-        transaction.update(orderRef, {
-          'feedbackGiven': true,
-          'averageRating': questions.map((q) => q.rating).reduce((a, b) => a + b) / questions.length,
-        });
-      });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Thank you for your feedback!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      print('Error submitting feedback: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error submitting feedback: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (order['id'] == null) {
+      throw Exception('Order ID is missing');
     }
+
+    // Fix the collection name for deliveries
+    final collection = type == 'Trip' ? 'trips' : 'deliveries';  // Changed from type.toLowerCase() + 's'
+    final orderRef = _firestore.collection(collection).doc(order['id']);
+
+    // Debug print the document path
+    print('Attempting to access document at: ${orderRef.path}');
+
+    // Check document existence
+    final docSnapshot = await orderRef.get();
+    if (!docSnapshot.exists) {
+      print('Document does not exist at path: ${orderRef.path}');
+      throw Exception('Order document not found at ${orderRef.path}');
+    }
+
+    await _firestore.runTransaction((transaction) async {
+      // Create feedback document
+      final feedbackRef = _firestore.collection('feedback').doc();
+      
+      // Calculate average rating
+      double averageRating = questions.map((q) => q.rating).reduce((a, b) => a + b) / questions.length;
+
+      // Prepare feedback data
+      final feedbackData = {
+        'orderId': order['id'],
+        'orderType': type,
+        'userId': _auth.currentUser?.uid,
+        'ratings': questions.map((q) => {
+          'question': q.question,
+          'rating': q.rating,
+        }).toList(),
+        'comment': comment,
+        'averageRating': averageRating,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      // Set feedback document
+      transaction.set(feedbackRef, feedbackData);
+
+      // Update order document
+      transaction.update(orderRef, {
+        'feedbackGiven': true,
+        'averageRating': averageRating,
+        'feedbackId': feedbackRef.id, // Add reference to feedback document
+      });
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Thank you for your feedback!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  } catch (e) {
+    print('Error submitting feedback: $e');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error submitting feedback: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 }

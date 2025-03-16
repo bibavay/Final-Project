@@ -29,7 +29,9 @@ class _DriverProfileState extends State<DriverProfile> {
       final userId = _auth.currentUser?.uid;
       if (userId == null) {
         print('No user ID found');
-        setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
         return;
       }
 
@@ -39,18 +41,22 @@ class _DriverProfileState extends State<DriverProfile> {
       
       if (doc.exists) {
         print('Driver document found: ${doc.data()}');
-        setState(() {
-          driverData = doc.data();
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            driverData = doc.data();
+            _isLoading = false;
+          });
+        }
       } else {
         print('No driver document found');
-        setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     } catch (e) {
       print('Error loading driver data: $e');
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading profile: $e'),
@@ -224,23 +230,9 @@ class _DriverProfileState extends State<DriverProfile> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Driver Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await _auth.signOut();
-              if (!mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const SigninScreen()),
-                (route) => false,
-              );
-            },
-          ),
-        ],
-      ),
+     appBar: AppBar(title: Text("Profile"),
+     backgroundColor: const Color.fromARGB(255, 2, 111, 37),
+     foregroundColor: Color.fromARGB(255, 255, 255, 255),),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -452,6 +444,38 @@ class _DriverProfileState extends State<DriverProfile> {
                       );
                     },
                   ),
+                  const SizedBox(height: 24), // Add spacing before logout button
+                  
+                  Card(
+                    elevation: 4,
+                    color: Color.fromARGB(255, 3, 76, 83),
+                    shape: RoundedRectangleBorder(
+                      
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListTile(
+                      onTap: () => _showLogoutConfirmation(context),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      
+                      leading: const Icon(
+                        Icons.logout,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      title: const Text(
+                        'Logout',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16), // Bottom padding
                 ],
               ),
             ),
@@ -460,6 +484,7 @@ class _DriverProfileState extends State<DriverProfile> {
 
   Widget _buildInfoCard(String title, List<Widget> children) {
     return Card(
+      
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -635,6 +660,39 @@ class _DriverProfileState extends State<DriverProfile> {
           }
         }
       }
+    }
+  }
+
+  Future<void> _showLogoutConfirmation(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true && mounted) {
+      await _auth.signOut();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const SigninScreen()),
+        (route) => false,
+      );
     }
   }
 }

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/DActive.dart';
+import 'package:flutter_application_4th_year_project/screens/Drivers/Explorer.dart';
 import 'package:flutter_application_4th_year_project/screens/Drivers/DHistory.dart';
 import 'package:flutter_application_4th_year_project/screens/Drivers/DriverProfile.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/Filters.dart';
 
 class DriverDashboard extends StatefulWidget {
   const DriverDashboard({super.key});
@@ -12,120 +11,103 @@ class DriverDashboard extends StatefulWidget {
 }
 
 class _DriverDashboardState extends State<DriverDashboard> {
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = [
+    const Explorer(),      // Explorer
+    const DHistory(),     // Order History
+    const DriverProfile() // Profile
+  ];
+
+  final List<String> _titles = [
+    'Explorer',
+    'Order History',
+    'Profile'
+  ];
+
+  // PreferredSizeWidget _buildAppBar() {
+  //   switch (_selectedIndex) {
+  //     case 0: // Explorer
+  //       return AppBar(
+  //         backgroundColor: Color.fromARGB(255, 3, 76, 83),
+  //         foregroundColor: Colors.white,
+  //         title: Text(_titles[_selectedIndex]),
+  //         automaticallyImplyLeading: false,
+  //       );
+      
+  //     case 1: // History
+  //       return AppBar(
+  //         backgroundColor: Color.fromARGB(255, 3, 76, 83),
+  //         foregroundColor: Colors.white,
+  //         title: Text(_titles[_selectedIndex]),
+  //         automaticallyImplyLeading: false,
+  //       );
+      
+  //     case 2: // Profile
+  //       return AppBar(
+  //         backgroundColor: Color.fromARGB(255, 3, 76, 83),
+  //         foregroundColor: Colors.white,
+  //         title: Text(_titles[_selectedIndex]),
+  //         automaticallyImplyLeading: false,
+  //         elevation: 0,
+  //       );
+      
+  //     default:
+  //       return AppBar(
+  //         backgroundColor: Color.fromARGB(255, 3, 76, 83),
+  //         foregroundColor: Colors.white,
+  //         title: Text(_titles[_selectedIndex]),
+  //         automaticallyImplyLeading: false,
+  //       );
+  //   }
+  // }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Driver Dashboard"),
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.account_circle),
-            tooltip: 'Profile',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const DriverProfile()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildDashboardCard(
-            'Active Orders',
-            'View and manage current orders',
-            Icons.local_shipping,
-            Colors.green,
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const Dactive()),
+     // appBar: _buildAppBar(),
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              spreadRadius: 1,
+              blurRadius: 10,
+              offset: const Offset(0, -2),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildDashboardCard(
-            'Order History',
-            'View completed deliveries',
-            Icons.history,
-            Colors.blue,
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const DHistory()),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: (index) {
+            setState(() {
+              _selectedIndex = index;
+            });
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Color.fromARGB(255, 3, 76, 83),
+          selectedItemColor: const Color.fromARGB(255, 255, 255, 255),
+          unselectedItemColor: const Color.fromARGB(255, 204, 204, 204),
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.explore_outlined),
+              activeIcon: Icon(Icons.explore),
+              label: 'Explorer',
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildDashboardCard(
-            'Filter Orders',
-            'Search and filter all orders',
-            Icons.filter_list,
-            Colors.orange,
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const Filters()),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.history_outlined),
+              activeIcon: Icon(Icons.history),
+              label: 'History',
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDashboardCard(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Icon(
-                  icon,
-                  size: 35,
-                  color: color,
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.grey[400],
-                size: 16,
-              ),
-            ],
-          ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+          ],
         ),
       ),
     );
