@@ -25,91 +25,66 @@ class _DriverDashboardState extends State<DriverDashboard> {
     'Profile'
   ];
 
-  // PreferredSizeWidget _buildAppBar() {
-  //   switch (_selectedIndex) {
-  //     case 0: // Explorer
-  //       return AppBar(
-  //         backgroundColor: Color.fromARGB(255, 3, 76, 83),
-  //         foregroundColor: Colors.white,
-  //         title: Text(_titles[_selectedIndex]),
-  //         automaticallyImplyLeading: false,
-  //       );
-      
-  //     case 1: // History
-  //       return AppBar(
-  //         backgroundColor: Color.fromARGB(255, 3, 76, 83),
-  //         foregroundColor: Colors.white,
-  //         title: Text(_titles[_selectedIndex]),
-  //         automaticallyImplyLeading: false,
-  //       );
-      
-  //     case 2: // Profile
-  //       return AppBar(
-  //         backgroundColor: Color.fromARGB(255, 3, 76, 83),
-  //         foregroundColor: Colors.white,
-  //         title: Text(_titles[_selectedIndex]),
-  //         automaticallyImplyLeading: false,
-  //         elevation: 0,
-  //       );
-      
-  //     default:
-  //       return AppBar(
-  //         backgroundColor: Color.fromARGB(255, 3, 76, 83),
-  //         foregroundColor: Colors.white,
-  //         title: Text(_titles[_selectedIndex]),
-  //         automaticallyImplyLeading: false,
-  //       );
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-     // appBar: _buildAppBar(),
       body: _screens[_selectedIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              spreadRadius: 1,
+              color: Colors.black.withOpacity(0.1),
               blurRadius: 10,
-              offset: const Offset(0, -2),
+              offset: const Offset(0, -5),
             ),
           ],
         ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Color.fromARGB(255, 3, 76, 83),
-          selectedItemColor: const Color.fromARGB(255, 255, 255, 255),
-          unselectedItemColor: const Color.fromARGB(255, 204, 204, 204),
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.explore_outlined),
-              activeIcon: Icon(Icons.explore),
-              label: 'Explorer',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined),
-              activeIcon: Icon(Icons.history),
-              label: 'History',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: BottomNavigationBar(
+            backgroundColor: const Color.fromARGB(255, 3, 76, 83),
+            type: BottomNavigationBarType.fixed,
+            currentIndex: _selectedIndex,
+            selectedItemColor: Colors.white,
+            unselectedItemColor: Colors.white.withOpacity(0.5),
+            selectedFontSize: 12,
+            unselectedFontSize: 12,
+            elevation: 0,
+            onTap: (index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
+            items: [
+              _buildNavItem(Icons.explore_outlined, Icons.explore, 'Explorer'),
+              _buildNavItem(Icons.history_outlined, Icons.history, 'History'),
+              _buildNavItem(Icons.person_outline, Icons.person, 'Profile'),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  BottomNavigationBarItem _buildNavItem(IconData icon, IconData activeIcon, String label) {
+    return BottomNavigationBarItem(
+      icon: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Icon(icon),
+      ),
+      activeIcon: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: Colors.white,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Icon(activeIcon),
+      ),
+      label: label,
     );
   }
 }

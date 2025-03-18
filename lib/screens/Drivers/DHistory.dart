@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_application_4th_year_project/service/firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+
+class FeedbackQuestion {
+  final String question;
+  double rating = 0;
+
+  FeedbackQuestion(this.question);
+}
 
 class DHistory extends StatefulWidget {
   const DHistory({super.key});
@@ -15,150 +20,105 @@ class DHistory extends StatefulWidget {
 class _DHistoryState extends State<DHistory> with SingleTickerProviderStateMixin {
   final _firestore = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
-  TabController? _tabController; // Change to nullable
+  late TabController _tabController;
 
- @override
-void initState() {
-  super.initState();
-  _tabController = TabController(length: 2, vsync: this);
-  print('Current User: ${_auth.currentUser?.uid}'); // Debug print
-}
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
 
   @override
   void dispose() {
-    // Safely dispose
-    _tabController?.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
   Stream<List<Map<String, dynamic>>> _getCompletedOrders(String type) {
-  final driverId = _auth.currentUser?.uid;
-  print('Fetching completed orders for driver: $driverId'); // Debug print
+    final driverId = _auth.currentUser?.uid;
+    if (driverId == null) return Stream.value([]);
 
-  if (driverId == null) {
-    print('No driver ID found');
-    return Stream.value([]);
+    final collection = type == 'Trip' ? 'trips' : 'deliveries';
+    final now = DateTime.now();
+
+    return _firestore
+        .collection(collection)
+        .where('driverId', isEqualTo: driverId)
+        .where('status', isEqualTo: 'completed') // Changed to only get completed orders
+        .snapshots()
+        .map((snapshot) {
+          try {
+            return snapshot.docs.map((doc) {
+              final data = doc.data();
+              print('Processing completed ${type} with ID: ${doc.id}');
+              
+              final orderDate = type == 'Trip' 
+                  ? (data['tripDate'] as Timestamp).toDate()
+                  : (data['deliveryDate'] as Timestamp).toDate();
+              
+              final orderTime = type == 'Trip' 
+                  ? data['tripTime'] as String
+                  : data['deliveryTime'] as String;
+              
+              Map<String, dynamic> orderMap = {
+                ...data,
+                'id': doc.id,
+                'orderDateTime': DateTime(
+                  orderDate.year,
+                  orderDate.month,
+                  orderDate.day,
+                  int.parse(orderTime.split(':')[0]),
+                  int.parse(orderTime.split(':')[1]),
+                ),
+              };
+              
+              return orderMap;
+            }).toList();
+          } catch (e) {
+            print('Error processing completed orders: $e');
+            return [];
+          }
+        });
   }
-
-  final collection = type == 'Trip' ? 'trips' : 'deliveries';
-  print('Querying collection: $collection'); // Debug print
-
-  final query = _firestore
-      .collection(collection)
-      .where('driverId', isEqualTo: driverId)
-      .where('status', isEqualTo: 'completed')
-      .orderBy('completedAt', descending: true);
-
-  print('Query path: ${query.parameters}'); // Debug print
-
-  return query.snapshots().map((snapshot) {
-    print('Found ${snapshot.docs.length} completed $type orders'); // Debug print
-    
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      print('Document ID: ${doc.id}'); // Debug print
-      print('Document data: $data'); // Debug print
-      
-      try {
-        return {
-          'id': doc.id,
-          'driverId': data['driverId'] ?? '',
-          'status': data['status'] ?? '',
-          'completedAt': data['completedAt'],
-          'customer': data['customer'] ?? 'Unknown',
-          'pickupLocation': data['pickupLocation'] ?? 'N/A',
-          'dropLocation': data['dropLocation'] ?? 'N/A',
-          'feedbackId': data['feedbackId'],
-          'amount': data['amount'] ?? 0.0,
-          'type': type,
-        };
-      } catch (e) {
-        print('Error processing document ${doc.id}: $e');
-        return null;
-      }
-    })
-    .where((item) => item != null)
-    .cast<Map<String, dynamic>>()
-    .toList();
-  });
-}
 
   @override
   Widget build(BuildContext context) {
-  if (_tabController == null) {
-    return const Center(child: CircularProgressIndicator());
-  }
-
-  return Scaffold(
-    appBar: AppBar(
-      backgroundColor: Color.fromARGB(255, 3, 76, 83),
-      foregroundColor: Colors.white,
-      title: const Text("Order History"),
-      bottom: TabBar(
-        controller: _tabController!,
-        tabs: const [
-          Tab(icon: Icon(Icons.directions_car), text: "Trips"),
-          Tab(icon: Icon(Icons.local_shipping), text: "Deliveries"),
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color.fromARGB(255, 3, 76, 83),
+        foregroundColor: Colors.white,
+        title: const Text("Order History"),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(
+              icon: Icon(Icons.directions_car),
+              text: "Trips"
+            ),
+            Tab(
+              icon: Icon(Icons.local_shipping),
+              text: "Deliveries"
+            ),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildOrdersList('Trip'),
+          _buildOrdersList('Delivery'),
         ],
       ),
-    ),
-    body: Column(
-      children: [
-        // Debug section with better formatting
-        Container(
-          padding: const EdgeInsets.all(8),
-          color: Colors.grey[200],
-          child: StreamBuilder<QuerySnapshot>(
-            stream: _firestore
-                .collection('trips')
-                .where('driverId', isEqualTo: _auth.currentUser?.uid)
-                .where('status', isEqualTo: 'completed')
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Text('Error: ${snapshot.error}');
-              }
-              if (!snapshot.hasData) {
-                return const Text('Loading...');
-              }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Debug Info:'),
-                  Text('Number of documents: ${snapshot.data?.docs.length}'),
-                  if (snapshot.data?.docs.isNotEmpty ?? false)
-                    Text('First document: ${snapshot.data?.docs.first.data()}'),
-                ],
-              );
-            },
-          ),
-        ),
-        // Main content
-        Expanded(
-          child: TabBarView(
-            controller: _tabController!,
-            children: [
-              _buildOrdersList('Trip'),
-              _buildOrdersList('Delivery'),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildOrdersList(String type) {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _getCompletedOrders(type),
       builder: (context, snapshot) {
-        // Add debug prints
-        print('Stream Builder State: ${snapshot.connectionState}');
-        print('Has Error: ${snapshot.hasError}');
-        if (snapshot.hasError) print('Error: ${snapshot.error}');
-        print('Has Data: ${snapshot.hasData}');
-        if (snapshot.hasData) print('Data Length: ${snapshot.data!.length}');
-
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
@@ -179,7 +139,7 @@ void initState() {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No completed ${type.toLowerCase()}s',
+                  'No completed ${type.toLowerCase()}s yet',
                   style: TextStyle(
                     fontSize: 18,
                     color: Colors.grey[600],
@@ -194,37 +154,55 @@ void initState() {
           itemCount: snapshot.data!.length,
           padding: const EdgeInsets.all(8),
           itemBuilder: (context, index) {
-            final order = snapshot.data![index];
-            
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ExpansionTile(
-                leading: Icon(
-                  type == 'Trip' ? Icons.directions_car : Icons.local_shipping,
-                  color: Colors.green,
-                ),
-                title: Text(
-                  '${type} #${order['id'].substring(0, 8)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Date: ${DateFormat('MMM dd, yyyy HH:mm').format((order['completedAt'] as Timestamp).toDate())}'),
-                    if (order['averageRating'] != null)
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 16),
-                          Text(' ${order['averageRating'].toStringAsFixed(1)}/5.0'),
-                        ],
+            try {
+              final order = snapshot.data![index];
+              final orderDateTime = order['orderDateTime'] as DateTime;
+              
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: ExpansionTile(
+                  leading: Icon(
+                    type == 'Trip' ? Icons.directions_car : Icons.local_shipping,
+                    color: Colors.green, // Always green since only showing completed orders
+                  ),
+                  title: Text(
+                    '${type} #${order['id'].substring(0, 8)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Date: ${DateFormat('MMM dd, yyyy HH:mm').format(orderDateTime)}'),
+                      Text(
+                        'Status: ${order['status']}',
+                        style: TextStyle(
+                          color: order['status'] == 'cancelled' ? Colors.red : Colors.green,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
+                      if (order['averageRating'] != null) ...[
+                        Row(
+                          children: [
+                            const Icon(Icons.star, color: Colors.amber, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Rating: ${order['averageRating'].toStringAsFixed(1)}',
+                              style: const TextStyle(color: Colors.amber),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                  children: [
+                    _buildOrderDetails(order, type),
                   ],
                 ),
-                children: [
-                  _buildOrderDetails(order, type),
-                ],
-              ),
-            );
+              );
+            } catch (e) {
+              print('Error building order item: $e');
+              return const SizedBox.shrink();
+            }
           },
         );
       },
@@ -237,54 +215,52 @@ void initState() {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Location details
-          Text('From: ${order['pickupLocation'] ?? 'N/A'}'),
-          Text('To: ${order['dropLocation'] ?? 'N/A'}'),
+          if (type == 'Trip') ...[
+            const Text('Trip Details:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Customer: ${order['userName'] ?? 'N/A'}'),
+            Text('Phone: ${order['userPhone'] ?? 'N/A'}'),
+            const SizedBox(height: 8),
+            const Text('Passengers:', style: TextStyle(fontWeight: FontWeight.bold)),
+            ...List.from(order['passengers'] ?? []).map((passenger) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('• Gender: ${passenger['gender']}'),
+                Text('  Age: ${passenger['age']}'),
+                if (passenger['sourceLocation'] != null)
+                  Text('  Pickup: (${(passenger['sourceLocation'] as GeoPoint).latitude}, '
+                      '${(passenger['sourceLocation'] as GeoPoint).longitude})'),
+                const SizedBox(height: 4),
+              ],
+            )),
+          ] else ...[
+            const Text('Delivery Details:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Sender: ${order['senderName'] ?? 'N/A'}'),
+            Text('Recipient: ${order['recipientName'] ?? 'N/A'}'),
+            Text('Contact: ${order['recipientPhone'] ?? 'N/A'}'),
+            if (order['package'] != null) ...[
+              const SizedBox(height: 8),
+              const Text('Package:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Weight: ${order['package']['dimensions']['weight']} kg'),
+              Text('Size: ${order['package']['dimensions']['height']}x'
+                  '${order['package']['dimensions']['width']}x'
+                  '${order['package']['dimensions']['depth']} cm'),
+            ],
+          ],
           const Divider(),
-          
-          // Customer details
-          Text('Customer: ${order['customer'] ?? 'Unknown'}'),
-          
-          // Feedback section
-          if (order['feedbackId'] != null) ...[
-            const SizedBox(height: 16),
-            const Text(
-              'Customer Feedback',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            FutureBuilder<DocumentSnapshot>(
-              future: _firestore.collection('feedback').doc(order['feedbackId']).get(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const CircularProgressIndicator();
-                
-                final feedbackData = snapshot.data!.data() as Map<String, dynamic>;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    RatingBarIndicator(
-                      rating: feedbackData['averageRating'] ?? 0.0,
-                      itemBuilder: (context, _) => const Icon(
-                        Icons.star,
-                        color: Colors.amber,
-                      ),
-                      itemCount: 5,
-                      itemSize: 20.0,
-                    ),
-                    if (feedbackData['comment'] != null &&
-                        feedbackData['comment'].toString().isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          '"${feedbackData['comment']}"',
-                          style: const TextStyle(
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
+          Text('Earnings: \$${order['driverEarnings']?.toStringAsFixed(2) ?? '0.00'}'),
+          const SizedBox(height: 8),
+          if (order['feedbackGiven'] == true && order['comment'] != null) ...[
+            const Text('Customer Feedback:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(order['comment']),
             ),
           ],
         ],

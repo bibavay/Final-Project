@@ -52,23 +52,28 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
 
   Stream<List<Map<String, dynamic>>> _getExpiredOrders(String type) {
     final userId = _auth.currentUser?.uid;
+    print('Current userId: $userId'); // Debug log
+
     if (userId == null) return Stream.value([]);
 
     final collection = type == 'Trip' ? 'trips' : 'deliveries';
     final now = DateTime.now();
+    print('Querying collection: $collection'); // Debug log
 
     return _firestore
         .collection(collection)
         .where('userId', isEqualTo: userId)
-        .where('status', whereIn: ['completed', 'cancelled'])
         .snapshots()
         .map((snapshot) {
+          print('Number of documents found: ${snapshot.docs.length}'); // Debug log
+          
           try {
-            return snapshot.docs.map((doc) {
+            final orders = snapshot.docs.map((doc) {
               final data = doc.data();
-              // Debug print to check document ID
-              print('Processing ${type} document with ID: ${doc.id}');
+              print('Processing document: ${doc.id}'); // Debug log
+              print('Document data: $data'); // Debug log
               
+              // Parse date and time
               final orderDate = type == 'Trip' 
                   ? (data['tripDate'] as Timestamp).toDate()
                   : (data['deliveryDate'] as Timestamp).toDate();
@@ -77,29 +82,40 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
                   ? data['tripTime'] as String
                   : data['deliveryTime'] as String;
               
-              // Include the document ID in the map
-              Map<String, dynamic> orderMap = {
+              print('Order date: $orderDate, time: $orderTime'); // Debug log
+              
+              // Combine date and time into DateTime object
+              final orderDateTime = DateTime(
+                orderDate.year,
+                orderDate.month,
+                orderDate.day,
+                int.parse(orderTime.split(':')[0]),
+                int.parse(orderTime.split(':')[1]),
+              );
+
+              return {
                 ...data,
-                'id': doc.id,  // Ensure ID is included and not overwritten
-                'orderDateTime': DateTime(
-                  orderDate.year,
-                  orderDate.month,
-                  orderDate.day,
-                  int.parse(orderTime.split(':')[0]),
-                  int.parse(orderTime.split(':')[1]),
-                ),
+                'id': doc.id,
+                'orderDateTime': orderDateTime,
               };
-              
-              // Debug print to verify the ID is included
-              print('Processed order map ID: ${orderMap['id']}');
-              
-              return orderMap;
             }).where((order) {
               final orderDateTime = order['orderDateTime'] as DateTime;
-              return orderDateTime.isBefore(now);
+              final status = order['status'] as String;
+              
+              print('Checking order: DateTime: $orderDateTime, Status: $status, Is Expired: ${orderDateTime.isBefore(now)}'); // Debug log
+              
+              return status == 'completed' || 
+                     status == 'cancelled' ||
+                     orderDateTime.isBefore(now) ||
+                     ((status == 'confirmed' || status == 'accepted') && 
+                      orderDateTime.isBefore(now));
             }).toList();
+
+            print('Final filtered orders count: ${orders.length}'); // Debug log
+            return orders;
           } catch (e) {
-            print('Error processing orders: $e');
+            print('Error processing orders: $e'); // More detailed error logging
+            print(e.toString());
             return [];
           }
         });
@@ -109,15 +125,26 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Order History"),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.directions_car), text: "Trips"),
-            Tab(icon: Icon(Icons.local_shipping), text: "Deliveries"),
-          ],
-        ),
+  backgroundColor: Color.fromARGB(255, 3, 76, 83),
+  foregroundColor: Colors.white,
+  title: const Text("Order History"),
+  bottom: TabBar(
+    controller: _tabController,
+    indicatorColor: Colors.white, // Makes the indicator white
+    labelColor: Colors.white, // Makes the selected tab text white
+    unselectedLabelColor: Colors.white70, // Makes unselected tab text slightly transparent white
+    tabs: const [
+      Tab(
+        icon: Icon(Icons.directions_car), // White car icon
+        text: "Trips"
       ),
+      Tab(
+        icon: Icon(Icons.local_shipping), // White shipping icon
+        text: "Deliveries"
+      ),
+    ],
+  ),
+    ),
       body: TabBarView(
         controller: _tabController,
         children: [
@@ -132,6 +159,11 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _getExpiredOrders(type),
       builder: (context, snapshot) {
+        // Debug prints
+        print('StreamBuilder state: ${snapshot.connectionState}');
+        if (snapshot.hasError) print('StreamBuilder error: ${snapshot.error}');
+        if (snapshot.hasData) print('StreamBuilder data count: ${snapshot.data!.length}');
+
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
@@ -176,7 +208,11 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
                 child: ExpansionTile(
                   leading: Icon(
                     type == 'Trip' ? Icons.directions_car : Icons.local_shipping,
-                    color: order['status'] == 'cancelled' ? Colors.red : Colors.green,
+                    color: order['status'] == 'cancelled' 
+                        ? Colors.red 
+                        : order['status'] == 'completed'
+                            ? Colors.green
+                            : Colors.orange,  // For expired confirmed/accepted orders
                   ),
                   title: Text(
                     '${type} #${order['id'].substring(0, 8)}',
@@ -480,5 +516,4 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
       ),
     );
   }
-}
-}
+}}

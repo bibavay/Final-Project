@@ -88,6 +88,31 @@ class _NewtripState extends State<Newtrip> {
     ],
   };
 
+  final Map<String, Map<String, double>> cityDistances = {
+    'Erbil': {
+      'Sulaymaniyah': 195.0,
+      'Duhok': 155.0,
+      'Halabja': 240.0,
+    },
+    'Sulaymaniyah': {
+      'Erbil': 195.0,
+      'Duhok': 340.0,
+      'Halabja': 75.0,
+    },
+    'Duhok': {
+      'Erbil': 155.0,
+      'Sulaymaniyah': 340.0,
+      'Halabja': 395.0,
+    },
+    'Halabja': {
+      'Erbil': 240.0,
+      'Sulaymaniyah': 75.0,
+      'Duhok': 395.0,
+    },
+  };
+
+  double estimatedPrice = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -331,15 +356,11 @@ class _NewtripState extends State<Newtrip> {
   Widget _buildPassengerCard(int index) {
     return Card(
       margin: const EdgeInsets.all(8),
-      
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Replace radio buttons with this dropdown
-            
-            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -347,15 +368,17 @@ class _NewtripState extends State<Newtrip> {
                   'Passenger ${index + 1}',
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                // Remove passenger button
                 if (passengers.length > 1)
                   IconButton(
                     icon: const Icon(Icons.remove_circle, color: Colors.red),
-                    onPressed: () => setState(() {
-                      passengers.removeAt(index);
-                      ageControllers[index].dispose();
-                      ageControllers.removeAt(index);
-                    }),
+                    onPressed: () {
+                      setState(() {
+                        passengers.removeAt(index);
+                        ageControllers[index].dispose();
+                        ageControllers.removeAt(index);
+                      });
+                      _calculateEstimatedPrice(); // Call after setState
+                    },
                   ),
               ],
             ),
@@ -480,171 +503,6 @@ class _NewtripState extends State<Newtrip> {
               ),
             ),
             const SizedBox(height: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pickup Location Details',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue[900],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Pickup City Selection
-                TextFormField(
-                  controller: _pickupCityController,
-                  decoration: InputDecoration(
-                    labelText: 'Pickup City',
-                    hintText: 'Select Pickup City',
-                    prefixIcon: const Icon(Icons.location_city),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    suffixIcon: PopupMenuButton<String>(
-                      icon: const Icon(Icons.arrow_drop_down),
-                      onSelected: (String value) {
-                        setState(() {
-                          selectedPickupCity = value;
-                          selectedPickupRegion = null;
-                          _pickupCityController.text = value;
-                          _pickupRegionController.clear();
-                        });
-                      },
-                      itemBuilder: (context) => kurdistanCities.keys
-                          .map((city) => PopupMenuItem<String>(
-                                value: city,
-                                child: Text(city),
-                              ))
-                          .toList(),
-                    ),
-                  ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Please select pickup city' : null,
-                ),
-                const SizedBox(height: 16),
-                // Pickup Region Selection
-                TextFormField(
-                  controller: _pickupRegionController,
-                  enabled: selectedPickupCity != null,
-                  decoration: InputDecoration(
-                    labelText: 'Pickup Region',
-                    hintText: selectedPickupCity == null 
-                        ? 'Select a city first' 
-                        : 'Select region in ${selectedPickupCity}',
-                    prefixIcon: const Icon(Icons.location_on),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    suffixIcon: selectedPickupCity == null 
-                        ? null 
-                        : PopupMenuButton<String>(
-                            icon: const Icon(Icons.arrow_drop_down),
-                            onSelected: (String value) {
-                              setState(() {
-                                selectedPickupRegion = value;
-                                _pickupRegionController.text = value;
-                              });
-                            },
-                            itemBuilder: (context) => kurdistanCities[selectedPickupCity]!
-                                .map((region) => PopupMenuItem<String>(
-                                      value: region,
-                                      child: Text(region),
-                                    ))
-                                .toList(),
-                          ),
-                  ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Please select pickup region' : null,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Drop-off Location Details',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red[900],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Drop-off City Selection
-                TextFormField(
-                  controller: _dropoffCityController,
-                  decoration: InputDecoration(
-                    labelText: 'Drop-off City',
-                    hintText: 'Select Drop-off City',
-                    prefixIcon: const Icon(Icons.location_city),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    suffixIcon: PopupMenuButton<String>(
-                      icon: const Icon(Icons.arrow_drop_down),
-                      onSelected: (String value) {
-                        setState(() {
-                          selectedDropoffCity = value;
-                          selectedDropoffRegion = null;
-                          _dropoffCityController.text = value;
-                          _dropoffRegionController.clear();
-                        });
-                      },
-                      itemBuilder: (context) => kurdistanCities.keys
-                          .map((city) => PopupMenuItem<String>(
-                                value: city,
-                                child: Text(city),
-                              ))
-                          .toList(),
-                    ),
-                  ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Please select drop-off city' : null,
-                ),
-                const SizedBox(height: 16),
-                // Drop-off Region Selection
-                TextFormField(
-                  controller: _dropoffRegionController,
-                  enabled: selectedDropoffCity != null,
-                  decoration: InputDecoration(
-                    labelText: 'Drop-off Region',
-                    hintText: selectedDropoffCity == null 
-                        ? 'Select a city first' 
-                        : 'Select region in ${selectedDropoffCity}',
-                    prefixIcon: const Icon(Icons.location_on),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    suffixIcon: selectedDropoffCity == null 
-                        ? null 
-                        : PopupMenuButton<String>(
-                            icon: const Icon(Icons.arrow_drop_down),
-                            onSelected: (String value) {
-                              setState(() {
-                                selectedDropoffRegion = value;
-                                _dropoffRegionController.text = value;
-                              });
-                            },
-                            itemBuilder: (context) => kurdistanCities[selectedDropoffCity]!
-                                .map((region) => PopupMenuItem<String>(
-                                      value: region,
-                                      child: Text(region),
-                                    ))
-                                .toList(),
-                          ),
-                  ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Please select drop-off region' : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -655,7 +513,13 @@ class _NewtripState extends State<Newtrip> {
     setState(() {
       passengers[index].isComplete = 
           passengers[index].gender != null && 
-          passengers[index].age != null;
+          passengers[index].age != null &&
+          passengers[index].sourceLocation != null &&
+          passengers[index].destinationLocation != null &&
+          _pickupCityController.text.isNotEmpty &&
+          _pickupRegionController.text.isNotEmpty &&
+          _dropoffCityController.text.isNotEmpty &&
+          _dropoffRegionController.text.isNotEmpty;
     });
   }
 
@@ -729,7 +593,10 @@ class _NewtripState extends State<Newtrip> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Trip'),
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('New Trip',style: TextStyle(color: Colors.white),),
+            backgroundColor: const Color.fromARGB(255, 3, 76, 83),
+            
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -744,7 +611,7 @@ class _NewtripState extends State<Newtrip> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue[700]),
+                    Icon(Icons.info_outline, color: Color.fromARGB(255, 3, 76, 83)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -755,7 +622,7 @@ class _NewtripState extends State<Newtrip> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.blue[900],
+                              color: Color.fromARGB(255, 3, 76, 83),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -775,7 +642,7 @@ class _NewtripState extends State<Newtrip> {
             Card(
               elevation: 2,
               child: ListTile(
-                leading: const Icon(Icons.calendar_today),
+                leading: const Icon(Icons.calendar_today, color: Color.fromARGB(255, 3, 76, 83)),
                 title: Text(
                   tripDate == null 
                       ? 'Select Trip Date' 
@@ -798,7 +665,7 @@ class _NewtripState extends State<Newtrip> {
             Card(
               elevation: 2,
               child: ListTile(
-                leading: const Icon(Icons.access_time),
+                leading: const Icon(Icons.access_time, color: Color.fromARGB(255, 3, 76, 83)),
                 title: Text(
                   tripTime == null 
                       ? 'Select Trip Time' 
@@ -829,6 +696,11 @@ class _NewtripState extends State<Newtrip> {
             // Add Time Notice Card
             
             const SizedBox(height: 16),
+            // Add the shared location card here
+            _buildSharedLocationCard(),
+            const SizedBox(height: 16),
+            _buildEstimatedPriceCard(), // Add this line
+            const SizedBox(height: 16),
             // Existing Passenger List
             ListView.builder(
               shrinkWrap: true,
@@ -844,23 +716,26 @@ class _NewtripState extends State<Newtrip> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: InkWell(
-              onTap: () => setState(() {
-                passengers.add(Passenger());
-                ageControllers.add(TextEditingController());
-              }),
+              onTap: () {
+                setState(() {
+                  passengers.add(Passenger());
+                  ageControllers.add(TextEditingController());
+                });
+                _calculateEstimatedPrice(); // Call after setState
+              },
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.person_add, color: Colors.blue[700], size: 24),
+                    Icon(Icons.person_add, color: Color.fromARGB(255, 3, 76, 83), size: 24),
                     const SizedBox(width: 8),
                     Text(
                       'Add Passenger (${passengers.length})',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
+                        color:Color.fromARGB(255, 3, 76, 83),
                       ),
                     ),
                   ],
@@ -878,7 +753,7 @@ class _NewtripState extends State<Newtrip> {
                 label: const Text('Confirm Trip',style: TextStyle(color: Colors.white),),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 15),
-                  backgroundColor: Colors.blue[700],
+                  backgroundColor: Color.fromARGB(255, 3, 76, 83),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -914,5 +789,380 @@ class _NewtripState extends State<Newtrip> {
       );
       Navigator.pop(context);
     }
+  }
+
+  Widget _buildLocationDetailsCard() {
+    return Card(
+      margin: const EdgeInsets.all(8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Trip Location Details',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue[900],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Pickup Location Details',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue[900],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Pickup City Selection
+            TextFormField(
+              controller: _pickupCityController,
+              decoration: InputDecoration(
+                labelText: 'Pickup City',
+                hintText: 'Select Pickup City',
+                prefixIcon: const Icon(Icons.location_city),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                suffixIcon: PopupMenuButton<String>(
+                  icon: const Icon(Icons.arrow_drop_down),
+                  onSelected: (String value) {
+                    setState(() {
+                      selectedPickupCity = value;
+                      selectedPickupRegion = null;
+                      _pickupCityController.text = value;
+                      _pickupRegionController.clear();
+                    });
+                    _calculateEstimatedPrice(); // Call after setState
+                  },
+                  itemBuilder: (context) => kurdistanCities.keys
+                      .map((governorate) => PopupMenuItem<String>(
+                            value: governorate,
+                            child: Text(governorate),
+                          ))
+                      .toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Pickup Region Selection
+            TextFormField(
+              controller: _pickupRegionController,
+              enabled: selectedPickupCity != null,
+              decoration: InputDecoration(
+                labelText: 'Pickup Region',
+                hintText: selectedPickupCity == null 
+                    ? 'Select a governorate first' 
+                    : 'Select district in ${selectedPickupCity}',
+                prefixIcon: const Icon(Icons.location_on),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                suffixIcon: selectedPickupCity == null 
+                    ? null 
+                    : PopupMenuButton<String>(
+                        icon: const Icon(Icons.arrow_drop_down),
+                        onSelected: (String value) {
+                          setState(() {
+                            selectedPickupRegion = value;
+                            _pickupRegionController.text = value;
+                          });
+                        },
+                        itemBuilder: (context) => kurdistanCities[selectedPickupCity]!
+                            .map((district) => PopupMenuItem<String>(
+                                  value: district,
+                                  child: Text(district),
+                                ))
+                            .toList(),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Drop-off Location Details',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.red[900],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Drop-off fields...
+            // (Keep the existing drop-off TextFormFields here)
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSharedLocationCard() {
+    return Card(
+      margin: const EdgeInsets.all(8),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pickup Location Details',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[900],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Pickup City Selection
+                TextFormField(
+                  controller: _pickupCityController,
+                  decoration: InputDecoration(
+                    labelText: 'Pickup Governorate',
+                    hintText: 'Select Pickup District',
+                    prefixIcon: const Icon(Icons.location_city),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    suffixIcon: PopupMenuButton<String>(
+                      icon: const Icon(Icons.arrow_drop_down),
+                      onSelected: (String value) {
+                        setState(() {
+                          selectedPickupCity = value;
+                          selectedPickupRegion = null;
+                          _pickupCityController.text = value;
+                          _pickupRegionController.clear();
+                        });
+                        _calculateEstimatedPrice(); // Call after setState
+                      },
+                      itemBuilder: (context) => kurdistanCities.keys
+                          .map((governorate) => PopupMenuItem<String>(
+                                value: governorate,
+                                child: Text(governorate),
+                              ))
+                          .toList(),
+                    ),
+                  ),
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Please select pickup governorate' : null,
+                ),
+                const SizedBox(height: 16),
+                // Pickup Region Selection
+                TextFormField(
+                  controller: _pickupRegionController,
+                  enabled: selectedPickupCity != null,
+                  decoration: InputDecoration(
+                    labelText: 'Pickup District',
+                    hintText: selectedPickupCity == null 
+                        ? 'Select a governorate first' 
+                        : 'Select district in ${selectedPickupCity}',
+                    prefixIcon: const Icon(Icons.location_on),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    suffixIcon: selectedPickupCity == null 
+                        ? null 
+                        : PopupMenuButton<String>(
+                            icon: const Icon(Icons.arrow_drop_down),
+                            onSelected: (String value) {
+                              setState(() {
+                                selectedPickupRegion = value;
+                                _pickupRegionController.text = value;
+                              });
+                            },
+                            itemBuilder: (context) => kurdistanCities[selectedPickupCity]!
+                                .map((district) => PopupMenuItem<String>(
+                                      value: district,
+                                      child: Text(district),
+                                    ))
+                                .toList(),
+                          ),
+                  ),
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Please select pickup district' : null,
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Drop-off Location Details',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red[900],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Drop-off City Selection
+                TextFormField(
+                  controller: _dropoffCityController,
+                  decoration: InputDecoration(
+                    labelText: 'Drop-off Governorate',
+                    hintText: 'Select Drop-off Governorate',
+                    prefixIcon: const Icon(Icons.location_city),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    suffixIcon: PopupMenuButton<String>(
+                      icon: const Icon(Icons.arrow_drop_down),
+                      onSelected: (String value) {
+                        setState(() {
+                          selectedDropoffCity = value;
+                          selectedDropoffRegion = null;
+                          _dropoffCityController.text = value;
+                          _dropoffRegionController.clear();
+                        });
+                        _calculateEstimatedPrice(); // Call after setState
+                      },
+                      itemBuilder: (context) => kurdistanCities.keys
+                          .map((governorate) => PopupMenuItem<String>(
+                                value: governorate,
+                                child: Text(governorate),
+                              ))
+                          .toList(),
+                    ),
+                  ),
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Please select drop-off governorate' : null,
+                ),
+                const SizedBox(height: 16),
+                // Drop-off Region Selection
+                TextFormField(
+                  controller: _dropoffRegionController,
+                  enabled: selectedDropoffCity != null,
+                  decoration: InputDecoration(
+                    labelText: 'Drop-off Region',
+                    hintText: selectedDropoffCity == null 
+                        ? 'Select a governorate first' 
+                        : 'Select district in ${selectedDropoffCity}',
+                    prefixIcon: const Icon(Icons.location_on),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    suffixIcon: selectedDropoffCity == null 
+                        ? null 
+                        : PopupMenuButton<String>(
+                            icon: const Icon(Icons.arrow_drop_down),
+                            onSelected: (String value) {
+                              setState(() {
+                                selectedDropoffRegion = value;
+                                _dropoffRegionController.text = value;
+                              });
+                            },
+                            itemBuilder: (context) => kurdistanCities[selectedDropoffCity]!
+                                .map((district) => PopupMenuItem<String>(
+                                      value: district,
+                                      child: Text(district),
+                                    ))
+                                .toList(),
+                          ),
+                  ),
+                  validator: (value) =>
+                      value?.isEmpty ?? true ? 'Please select drop-off district' : null,
+                ),
+              ],
+            ),
+      ),
+    );
+  }
+
+  void _calculateEstimatedPrice() {
+    if (selectedPickupCity == null || selectedDropoffCity == null) {
+      setState(() {
+        estimatedPrice = 0.0;
+      });
+      return;
+    }
+
+    // Base price for the trip
+    double basePrice = 25000.0; // 25,000 IQD base price
+
+    // Calculate distance factor
+    double distance = 0.0;
+    if (selectedPickupCity != selectedDropoffCity) {
+      distance = cityDistances[selectedPickupCity]?[selectedDropoffCity] ?? 0.0;
+    }
+
+    // Price per kilometer
+    double pricePerKm = 500.0; // 500 IQD per kilometer
+    
+    // Additional passenger fee
+    double additionalPassengerFee = (passengers.length - 1) * 5000.0;
+
+    // Calculate total price
+    setState(() {
+      estimatedPrice = basePrice + (distance * pricePerKm) + additionalPassengerFee;
+    });
+
+    print('Price calculation:');
+    print('Base price: $basePrice');
+    print('Distance: $distance km');
+    print('Distance cost: ${distance * pricePerKm}');
+    print('Additional passengers cost: $additionalPassengerFee');
+    print('Total estimated price: $estimatedPrice');
+  }
+
+  // Add this widget method
+  Widget _buildEstimatedPriceCard() {
+    return Card(
+      margin: const EdgeInsets.all(8),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+                Text(
+                  'Estimated Price:',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[900],
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '${NumberFormat("#,##0").format(estimatedPrice)} IQD',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromARGB(255, 3, 76, 83),
+                  ),
+                
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Price includes:',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '• Base fare: 25,000 IQD\n'
+              '• Distance fee: 500 IQD per kilometer\n'
+              '• Additional passenger fee: 5,000 IQD per person',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

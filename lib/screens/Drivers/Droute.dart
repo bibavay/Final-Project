@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Droute extends StatefulWidget {
   final Map<String, dynamic> orderDetails;
@@ -40,8 +41,27 @@ class _DrouteState extends State<Droute> {
   @override
   void initState() {
     super.initState();
+    // Add detailed logging of order details
+    print('Initializing Droute with full order details:');
+    print('Order Type: ${widget.orderType}');
+    widget.orderDetails.forEach((key, value) {
+      print('$key: $value');
+    });
+    
+    // Validate order details
+    if (widget.orderDetails['orderId'] == null) {
+      // Set a default error state
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _error = 'Invalid order details: Missing orderId';
+          _isLoading = false;
+        });
+      });
+      return;
+    }
+    
     _mapController = MapController();
-    _initializeMap(); // This will handle both map and passenger loading
+    _initializeMap();
   }
 
   @override
@@ -53,39 +73,64 @@ class _DrouteState extends State<Droute> {
 
   Future<void> _loadPassengers() async {
     try {
-      print('Loading passengers from order details: ${widget.orderDetails}');
+      print('Starting to fetch passengers...');
+      final firestore = FirebaseFirestore.instance;
       
-      // For Trip type, get passenger details
-      if (widget.orderType == 'Trip') {
-        final passengerDetails = widget.orderDetails['passengerDetails'];
-        if (passengerDetails == null) {
-          throw Exception('No passenger details found');
+      final orderId = widget.orderDetails['orderId'];
+      print('Order ID being used: $orderId');
+      
+      if (orderId == null) {
+        throw Exception('Cannot load passengers: Order ID is null. Please ensure order details are properly passed to the Droute widget.');
+      }
+
+      final passengersSnapshot = await firestore
+          .collection('trips')
+          .doc(orderId)
+          .collection('passengers')
+          .get();
+
+      print('Firestore query completed. Documents found: ${passengersSnapshot.docs.length}');
+
+      if (passengersSnapshot.docs.isEmpty) {
+        throw Exception('No passengers found for order ID: ${widget.orderDetails['orderId']}');
+      }
+
+      final passengers = passengersSnapshot.docs.map((doc) {
+        final data = doc.data();
+        print('Processing passenger document: ${doc.id}');
+        print('Passenger data: $data');
+        
+        if (data['pickupLocation'] == null || data['dropoffLocation'] == null) {
+          throw Exception('Missing location data for passenger ${doc.id}');
         }
 
-        // Create passenger object with locations
-        final passenger = {
-          'id': '1',
-          'pickupLocation': widget.orderDetails['pickupLocation'],
-          'dropoffLocation': widget.orderDetails['dropoffLocation'],
-          'name': passengerDetails['name'] ?? 'Passenger',
+        return {
+          'id': doc.id,
+          'pickupLocation': data['pickupLocation'],
+          'dropoffLocation': data['dropoffLocation'],
+          'name': data['name'] ?? 'Passenger',
+          'isPickedUp': data['isPickedUp'] ?? false,
         };
+      }).toList();
 
+      if (!_disposed) {
         setState(() {
-          _passengers = [passenger];
+          _passengers = passengers;
           _isLoading = false;
         });
-        
-        if (_passengers.isNotEmpty) {
-          print('Found passenger with locations: $_passengers');
-          await _selectPassenger(_passengers[0]['id'].toString());
-        }
+
+        print('Successfully loaded ${_passengers.length} passengers');
+        await _loadAllPassengerRoutes();
       }
-    } catch (e) {
-      print('Error loading passengers: $e');
-      _showError('Error loading passengers: $e');
-      setState(() {
-        _isLoading = false;
-      });
+    } catch (e, stackTrace) {
+      print('Error in _loadPassengers: $e');
+      print('Stack trace: $stackTrace');
+      if (!_disposed) {
+        _showError('Error loading passengers: $e');
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -105,6 +150,54 @@ class _DrouteState extends State<Droute> {
     } catch (e) {
       print('Error selecting passenger: $e');
       _showError('Error loading passenger route: $e');
+    }
+  }
+
+  Future<void> _loadAllPassengerRoutes() async {
+    try {
+      List<LatLng> allRoutePoints = [];
+      for (var passenger in _passengers) {
+        final pickupLocation = passenger['pickupLocation'];
+        final dropoffLocation = passenger['dropoffLocation'];
+
+        if (pickupLocation != null && dropoffLocation != null) {
+          final pickup = LatLng(
+            double.parse(pickupLocation['latitude'].toString()),
+            double.parse(pickupLocation['longitude'].toString()),
+          );
+          final dropoff = LatLng(
+            double.parse(dropoffLocation['latitude'].toString()),
+            double.parse(dropoffLocation['longitude'].toString()),
+          );
+
+          final routePoints = await _getRoutePoints(pickup, dropoff);
+          allRoutePoints.addAll(routePoints);
+        }
+      }
+
+      if (mounted && !_disposed && _mapController != null) {
+        setState(() {
+          _routePoints = allRoutePoints;
+          _isLoading = false;
+          _error = null;
+        });
+
+        // Update map view
+        if (_isMapReady) {
+          _mapController!.fitBounds(
+            LatLngBounds.fromPoints(_routePoints),
+            options: const FitBoundsOptions(padding: EdgeInsets.all(50)),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error loading all passenger routes: $e');
+      if (mounted && !_disposed) {
+        _showError('Failed to load all passenger routes: $e');
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -381,6 +474,54 @@ class _DrouteState extends State<Droute> {
     );
   }
 
+  Widget _buildPassengerMarkers() {
+    return MarkerLayer(
+      markers: _passengers.map((passenger) {
+        final pickupLocation = passenger['pickupLocation'];
+        final dropoffLocation = passenger['dropoffLocation'];
+        final isPickedUp = passenger['isPickedUp'] ?? false;
+
+        return [
+          // Pickup marker
+          Marker(
+            point: LatLng(
+              double.parse(pickupLocation['latitude'].toString()),
+              double.parse(pickupLocation['longitude'].toString()),
+            ),
+            width: 40,
+            height: 40,
+            child: Icon(
+              Icons.person_pin,
+              color: isPickedUp ? Colors.grey : Colors.blue,
+            ),
+          ),
+          // Dropoff marker
+          Marker(
+            point: LatLng(
+              double.parse(dropoffLocation['latitude'].toString()),
+              double.parse(dropoffLocation['longitude'].toString()),
+            ),
+            width: 40,
+            height: 40,
+            child: const Icon(
+              Icons.location_on,
+              color: Color.fromARGB(255, 3, 173, 0),
+            ),
+          ),
+        ];
+      }).expand((marker) => marker).toList(),
+    );
+  }
+
+  void _markPassengerAsPickedUp(String passengerId) {
+    setState(() {
+      final passengerIndex = _passengers.indexWhere((p) => p['id'].toString() == passengerId);
+      if (passengerIndex != -1) {
+        _passengers[passengerIndex]['isPickedUp'] = true;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -427,32 +568,7 @@ class _DrouteState extends State<Droute> {
                             userAgentPackageName: 'com.example.app',
                           ),
                           if (_routePoints.isNotEmpty) ...[
-                            MarkerLayer(
-                              markers: [
-                                // Pickup marker
-                                Marker(
-                                  point: _routePoints.first,
-                                  width: 40,
-                                  height: 40,
-                                  child: Icon(
-                                    widget.orderType == 'Trip' 
-                                        ? Icons.person_pin 
-                                        : Icons.local_shipping,
-                                    color: Colors.blue,
-                                  ),
-                                ),
-                                // Dropoff marker
-                                Marker(
-                                  point: _routePoints.last,
-                                  width: 40,
-                                  height: 40,
-                                  child: const Icon(
-                                    Icons.location_on,
-                                    color: Color.fromARGB(255, 3, 173, 0),
-                                  ),
-                                ),
-                              ],
-                            ),
+                            _buildPassengerMarkers(),
                             PolylineLayer(
                               polylines: [
                                 Polyline(
@@ -502,11 +618,12 @@ class _DrouteState extends State<Droute> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
-                  // TODO: Implement start trip/delivery logic
-                  Navigator.pop(context); // Return to previous screen
+                  if (_selectedPassengerId != null) {
+                    _markPassengerAsPickedUp(_selectedPassengerId!);
+                  }
                 },
-                icon: const Icon(Icons.play_arrow),
-                label: Text('Start ${widget.orderType}'),
+                icon: const Icon(Icons.check),
+                label: const Text('Mark Picked Up'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   minimumSize: const Size(0, 45),

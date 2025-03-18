@@ -98,7 +98,11 @@ class _SigninScreenState extends State<SigninScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Sign In",style: TextStyle(fontWeight: FontWeight.w600),),
+      appBar: AppBar(
+      backgroundColor: Color.fromARGB(255, 3, 76, 83),
+      title: Text("Sign In",
+      style: TextStyle(fontWeight: FontWeight.w600,color: Colors.white,
+      ),),
       ),
       body: Stack(
         children: [
@@ -151,7 +155,7 @@ class _SigninScreenState extends State<SigninScreen> {
                           labelText: 'Email',
                           hintText: 'Enter your email address',
                           floatingLabelBehavior: FloatingLabelBehavior.auto,
-                          prefixIcon: Icon(Icons.person_outlined),
+                          prefixIcon: Icon(Icons.person_outlined,color: Color.fromARGB(255, 3, 76, 83)),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide(color: Colors.grey.shade300),
@@ -162,7 +166,7 @@ class _SigninScreenState extends State<SigninScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.blue, width: 2),
+                            borderSide: BorderSide(color:Color.fromARGB(255, 3, 76, 83), width: 2),
                           ),
                           filled: true,
                           fillColor: Colors.grey.shade50,
@@ -186,7 +190,7 @@ class _SigninScreenState extends State<SigninScreen> {
                           labelText: 'Password',
                           hintText: 'Enter your password',
                           floatingLabelBehavior: FloatingLabelBehavior.auto,
-                          prefixIcon: Icon(Icons.lock_outline),
+                          prefixIcon: Icon(Icons.lock_outline,color: Color.fromARGB(255, 3, 76, 83)),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
@@ -195,7 +199,7 @@ class _SigninScreenState extends State<SigninScreen> {
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                            borderSide: BorderSide(color: Color.fromARGB(255, 3, 76, 83)),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -203,7 +207,7 @@ class _SigninScreenState extends State<SigninScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.blue, width: 2),
+                            borderSide: BorderSide(color: Color.fromARGB(255, 3, 76, 83), width: 2),
                           ),
                           filled: true,
                           fillColor: Colors.grey.shade50,
@@ -221,10 +225,10 @@ class _SigninScreenState extends State<SigninScreen> {
                       ElevatedButton(
                         onPressed: _isLoading ? null : _signIn,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 219, 226, 233),
-                          padding: const EdgeInsets.symmetric(horizontal: 129, vertical: 12),
+                          backgroundColor: const Color.fromARGB(255, 3, 76, 83),
+                          padding: const EdgeInsets.symmetric(horizontal: 134, vertical: 12),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                         ),
                         child: _isLoading
@@ -233,14 +237,14 @@ class _SigninScreenState extends State<SigninScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(Color.fromARGB(255, 3, 76, 83)),
                           ),
                         )
                             : const Text(
                           'Sign In',
                           style: TextStyle(fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black),
+                              color: Color.fromARGB(255, 255, 255, 255)),
                         ),
                       ),
                       const SizedBox(height: 10),

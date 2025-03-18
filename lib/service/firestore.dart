@@ -361,6 +361,77 @@ Stream<QuerySnapshot> getCompletedTrips(String driverId, {String? type}) {
       'feedbackId': (await feedbackRef).id
     });
   }
+
+  // Customer Profile Methods
+  Future<Map<String, dynamic>?> getCustomerProfile(String userId) async {
+    try {
+      final doc = await users.doc(userId).get();
+      if (doc.exists) {
+        return doc.data() as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      print('Error getting customer profile: $e');
+      return null;
+    }
+  }
+
+  Future<void> updateCustomerProfile(String userId, Map<String, dynamic> data) async {
+    try {
+      await users.doc(userId).update({
+        ...data,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error updating customer profile: $e');
+      throw e;
+    }
+  }
+
+  Stream<DocumentSnapshot> customerProfileStream(String userId) {
+    return users.doc(userId).snapshots();
+  }
+
+  Future<void> updateCustomerLocation(String userId, GeoPoint location, String address) async {
+    try {
+      await users.doc(userId).update({
+        'location': location,
+        'currentAddress': address,
+        'locationUpdatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error updating customer location: $e');
+      throw e;
+    }
+  }
+
+  Future<void> updateCustomerDetails({
+    required String userId,
+    required String firstName,
+    required String lastName,
+    required String phone,
+    String? email,
+    GeoPoint? location,
+    String? currentAddress,
+  }) async {
+    try {
+      final updateData = {
+        'firstName': firstName,
+        'lastName': lastName,
+        'phone': phone,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (email != null) updateData['email'] = email;
+      if (location != null) updateData['location'] = location;
+      if (currentAddress != null) updateData['currentAddress'] = currentAddress;
+
+      await users.doc(userId).update(updateData);
+    } catch (e) {
+      print('Error updating customer details: $e');
+      throw e;
+    }
+  }
 }
 
 class ActiveOrder {

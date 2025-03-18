@@ -25,6 +25,10 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const SigninScreen(),
+      routes: {
+        '/signin_screen': (context) => const SigninScreen(), // Update with your actual signin screen
+        // ...other routes...
+      },
     );
   }
 }

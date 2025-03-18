@@ -16,6 +16,7 @@ class _DriverProfileState extends State<DriverProfile> {
   final _auth = FirebaseAuth.instance;
   Map<String, dynamic>? driverData;
   bool _isLoading = true;
+  bool _isEditing = false;
 
   @override
   void initState() {
@@ -229,256 +230,271 @@ class _DriverProfileState extends State<DriverProfile> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-     appBar: AppBar(title: Text("Profile"),
-     backgroundColor: const Color.fromARGB(255, 2, 111, 37),
-     foregroundColor: Color.fromARGB(255, 255, 255, 255),),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+      appBar: AppBar(
+        backgroundColor: const Color.fromARGB(255, 3, 76, 83),
+        foregroundColor: Colors.white,
+        title: const Text('My Profile'),
+        actions: [
+          IconButton(
+            icon: Icon(_isEditing ? Icons.save : Icons.edit),
+            onPressed: () async {
+              setState(() {
+                _isEditing = !_isEditing;
+              });
+              if (!_isEditing) {
+                // When saving (turning off edit mode)
+                await _loadDriverData(); // Refresh data
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Changes saved successfully')),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Profile Header Section
+            Container(
+              //color: const Color.fromARGB(255, 255, 255, 255),
+              padding: const EdgeInsets.only(bottom: 24.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.blue,
-                      child: Icon(
-                        Icons.person,
-                        size: 50,
-                        color: Colors.white,
-                      ),
+                  const SizedBox(height: 20),
+                  const CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Color.fromARGB(255, 3, 76, 83),
+                    child: Icon(Icons.person, size: 50, color: Color.fromARGB(255, 255, 255, 255)),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '${driverData?['Fname'] ?? ''} ${driverData?['Lname'] ?? ''}',
+                    style: const TextStyle(
+                      color: Color.fromARGB(255, 3, 76, 83),
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  Text(
+                    driverData?['email'] ?? '',
+                    style: const TextStyle(color: Color.fromARGB(255, 3, 76, 83),),
                   ),
                   const SizedBox(height: 16),
                   FutureBuilder<Map<String, dynamic>>(
                     future: _getDriverRatings(),
                     builder: (context, snapshot) {
                       final rating = snapshot.data?['overallRating'] ?? 0.0;
-                      final totalRatings = snapshot.data?['totalRatings'] ?? 0;
-                      
-                      return Column(
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                rating.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.black45.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  rating.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(
-                                Icons.star,
-                                size: 28,
-                                color: Colors.amber,
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '$totalRatings ${totalRatings == 1 ? 'Review' : 'Reviews'}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
+                                  size: 24,
+                                ),
+                              ],
                             ),
                           ),
                         ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            // Main Content Section
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // Personal Information Card
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Personal Information',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Divider(),
+                          _buildInfoRow('First Name', driverData?['Fname'] ?? 'N/A', 'Fname'),
+                          _buildInfoRow('Last Name', driverData?['Lname'] ?? 'N/A', 'Lname'),
+                          _buildInfoRow('Phone', driverData?['phoneNumber'] ?? 'N/A', 'phoneNumber'),
+                          _buildInfoRow('Gender', driverData?['gender'] ?? 'N/A', 'gender'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Vehicle Information Card
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Vehicle Information',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Divider(),
+                          _buildInfoRow('Car Model', driverData?['carmodel'] ?? 'N/A', 'carmodel'),
+                          _buildInfoRow('Car Color', driverData?['carcolor'] ?? 'N/A', 'carcolor'),
+                          _buildInfoRow('Car Maker', driverData?['carMaker'] ?? 'N/A', 'carMaker'),
+                          _buildInfoRow('Car Plate', driverData?['carPT'] ?? 'N/A', 'carPT'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Ratings Card
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: _getDriverRatings(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final ratings = snapshot.data!;
+                      return Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Rating Summary',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const Divider(),
+                              _buildRatingRow('Overall Rating', ratings['overallRating']),
+                              _buildRatingRow('Professionalism', ratings['professionalism']),
+                              _buildRatingRow('Driving Skills', ratings['drivingSkills']),
+                              _buildRatingRow('Punctuality', ratings['punctuality']),
+                              _buildRatingRow('Vehicle Condition', ratings['vehicleCondition']),
+                            ],
+                          ),
+                        ),
                       );
                     },
                   ),
                   const SizedBox(height: 24),
-                  _buildInfoCard(
-                    'Personal Information',
-                    [
-                      _buildInfoRow('First Name', driverData?['Fname'] ?? 'N/A', 'Fname'),
-                      _buildInfoRow('Last Name', driverData?['Lname'] ?? 'N/A', 'Lname'),
-                      _buildInfoRow('Email', driverData?['email'] ?? 'N/A'),
-                      _buildInfoRow('Phone Number', 
-                          driverData?['phoneNumber']?.toString() ?? 'N/A', 'phoneNumber'),
-                      _buildInfoRow('Gender', driverData?['gender'] ?? 'N/A', 'gender'),
-                      _buildInfoRow('Status', driverData?['status'] ?? 'N/A'),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildInfoCard(
-                    'Vehicle Information',
-                    [
-                      _buildInfoRow('Car Model', driverData?['carmodel'] ?? 'N/A', 'carmodel'),
-                      _buildInfoRow('Car Color', driverData?['carcolor'] ?? 'N/A', 'carcolor'),
-                      _buildInfoRow('Car Maker', driverData?['carMaker'] ?? 'N/A', 'carMaker'),
-                      _buildInfoRow('Car Type', driverData?['carType'] ?? 'N/A', 'carType'),
-                      _buildInfoRow('Car Year', 
-                          driverData?['carYear']?.toString() ?? 'N/A', 'carYear'),
-                      _buildInfoRow('Car Plate', driverData?['carPT'] ?? 'N/A', 'carPT'),
-                      _buildInfoRow('Passenger Capacity', 
-                          driverData?['passNumber']?.toString() ?? 'N/A', 'passNumber'),
-                      _buildInfoRow('Driving Certificate', driverData?['DC'] ?? 'N/A', 'DC'),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildInfoCard(
-                    'Location Information',
-                    [
-                      _buildInfoRow('Governorate', driverData?['governorate'] ?? 'N/A', 'governorate'),
-                      _buildInfoRow('District', driverData?['district'] ?? 'N/A', 'district'),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: Future.wait([
-                      _getDriverStatistics(),
-                      _getDriverRatings(),
-                    ]).then((results) => {
-                      ...results[0] as Map<String, int>,
-                      'restricted': (results[1]['totalRatings'] >= 1 && 
-                                    results[1]['overallRating'] < 2.5),
-                    }),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
 
-                      final stats = snapshot.data ?? {'trips': 0, 'deliveries': 0, 'restricted': false};
-                      final totalServices = stats['trips']! + stats['deliveries']!;
-
-                      return Column(
-                        children: [
-                          if (stats['restricted'] == true)
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              margin: const EdgeInsets.only(bottom: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.red.shade200),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.warning, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Your account is currently restricted due to low rating average.',
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          _buildInfoCard(
-                            'Service Statistics',
-                            [
-                              _buildInfoRow(
-                                'Total Services',
-                                totalServices.toString(),
-                              ),
-                              _buildInfoRow(
-                                'Total Trips',
-                                stats['trips'].toString(),
-                              ),
-                              _buildInfoRow(
-                                'Total Deliveries',
-                                stats['deliveries'].toString(),
-                              ),
-                              _buildInfoRow(
-                                'Service Type Distribution',
-                                stats['trips']! > 0 || stats['deliveries']! > 0
-                                    ? '${((stats['trips']! / totalServices) * 100).toStringAsFixed(1)}% Trips, '
-                                      '${((stats['deliveries']! / totalServices) * 100).toStringAsFixed(1)}% Deliveries'
-                                    : 'No services yet',
-                              ),
-                            ],
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: _getDriverRatings(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      final ratings = snapshot.data ?? {
-                        'overallRating': 0.0,
-                        'professionalism': 0.0,
-                        'drivingSkills': 0.0,
-                        'punctuality': 0.0,
-                        'vehicleCondition': 0.0,
-                        'totalRatings': 0,
-                      };
-
-                      return _buildInfoCard(
-                        'Customer Ratings (Out of 5.0)',
-                        [
-                          _buildInfoRow(
-                            'Overall Rating',
-                            '${ratings['overallRating'].toStringAsFixed(1)}/5.0 ⭐',
-                          ),
-                          _buildInfoRow(
-                            'Professionalism',
-                            '${ratings['professionalism'].toStringAsFixed(1)}/5.0 ⭐',
-                          ),
-                          _buildInfoRow(
-                            'Driving Skills',
-                            '${ratings['drivingSkills'].toStringAsFixed(1)}/5.0 ⭐',
-                          ),
-                          _buildInfoRow(
-                            'Punctuality',
-                            '${ratings['punctuality'].toStringAsFixed(1)}/5.0 ⭐',
-                          ),
-                          _buildInfoRow(
-                            'Vehicle Condition',
-                            '${ratings['vehicleCondition'].toStringAsFixed(1)}/5.0 ⭐',
-                          ),
-                          _buildInfoRow(
-                            'Total Reviews',
-                            '${ratings['totalRatings']}',
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24), // Add spacing before logout button
-                  
-                  Card(
-                    elevation: 4,
-                    color: Color.fromARGB(255, 3, 76, 83),
-                    shape: RoundedRectangleBorder(
-                      
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ListTile(
-                      onTap: () => _showLogoutConfirmation(context),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      
-                      leading: const Icon(
-                        Icons.logout,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      title: const Text(
+                  // Logout Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showLogoutConfirmation(context),
+                      icon: const Icon(Icons.logout, color: Colors.white),
+                      label: const Text(
                         'Logout',
                         style: TextStyle(
-                          color: Colors.white,
                           fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 3, 76, 83),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16), // Bottom padding
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Add this new method for rating rows
+  Widget _buildRatingRow(String label, double rating) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 16),
+          ),
+          Row(
+            children: [
+              Text(
+                rating.toStringAsFixed(1),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.star,
+                size: 20,
+                color: Colors.amber,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -508,59 +524,80 @@ class _DriverProfileState extends State<DriverProfile> {
   }
 
   Widget _buildInfoRow(String label, String value, [String? field]) {
+    final controller = TextEditingController(text: value);
+    
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center, // Changed from start to center
-        children: [
-          // Label section - 40% of width
-          Expanded(
-            flex: 4,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+      child: TextFormField(
+        controller: controller,
+        enabled: _isEditing && field != null,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(
+            _getIconForField(field ?? ''),
+            color: const Color.fromARGB(255, 3, 76, 83),
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(
+              color: const Color.fromARGB(255, 3, 76, 83).withOpacity(0.2),
             ),
           ),
-          // Value section - 60% of width
-          Expanded(
-            flex: 6,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.center, // Changed from start to center
-              children: [
-                Flexible(
-                  child: Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.right,
-                    softWrap: true,
-                  ),
-                ),
-                if (field != null) ...[
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: 24, // Fixed height to match text
-                    child: IconButton(
-                      icon: const Icon(Icons.edit, size: 20),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      alignment: Alignment.center,
-                      onPressed: () => _editField(field, value),
-                    ),
-                  ),
-                ],
-              ],
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(
+              color: Color.fromARGB(255, 3, 76, 83),
             ),
           ),
-        ],
+        ),
+        validator: (value) =>
+            value?.isEmpty ?? true ? 'Please enter $label' : null,
+        onChanged: _isEditing && field != null
+            ? (newValue) async {
+                if (newValue.trim().isEmpty) return;
+                try {
+                  await _firestore
+                      .collection('users')
+                      .doc(_auth.currentUser?.uid)
+                      .update({field: newValue.trim()});
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error updating $field: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            : null,
       ),
     );
+  }
+
+  // Add this helper method to get appropriate icons for each field
+  IconData _getIconForField(String field) {
+    switch (field.toLowerCase()) {
+      case 'fname':
+      case 'lname':
+        return Icons.person_outline;
+      case 'phonenumber':
+        return Icons.phone_outlined;
+      case 'gender':
+        return Icons.people_outline;
+      case 'carmodel':
+      case 'carmaker':
+        return Icons.directions_car_outlined;
+      case 'carcolor':
+        return Icons.color_lens_outlined;
+      case 'carpt':
+        return Icons.tag;
+      default:
+        return Icons.info_outline;
+    }
   }
 
   Future<bool> _isDriverRestricted() async {

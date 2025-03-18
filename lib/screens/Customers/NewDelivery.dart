@@ -291,7 +291,7 @@ class _NewDeliveryState extends State<NewDelivery> {
           children: [
             Row(
               children: [
-                Icon(Icons.location_on, color: Colors.blue[700]),
+                Icon(Icons.location_on, color: Color.fromARGB(255, 3, 76, 83)),
                 const SizedBox(width: 8),
                 const Text(
                   'Delivery Locations',
@@ -316,8 +316,8 @@ class _NewDeliveryState extends State<NewDelivery> {
             TextFormField(
               controller: _pickupCityController,
               decoration: InputDecoration(
-                labelText: 'Pickup City',
-                hintText: 'Select Pickup City',
+                labelText: 'Pickup Governorate',
+                hintText: 'Select Pickup Governorate',
                 prefixIcon: const Icon(Icons.location_city),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -354,10 +354,10 @@ class _NewDeliveryState extends State<NewDelivery> {
               controller: _pickupRegionController,
               enabled: selectedPickupCity != null,
               decoration: InputDecoration(
-                labelText: 'Pickup Region',
+                labelText: 'Pickup District',
                 hintText: selectedPickupCity == null 
-                    ? 'Select a city first' 
-                    : 'Select region in ${selectedPickupCity}',
+                    ? 'Select a governorate first' 
+                    : 'Select district in ${selectedPickupCity}',
                 prefixIcon: const Icon(Icons.location_on),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -403,8 +403,8 @@ class _NewDeliveryState extends State<NewDelivery> {
             TextFormField(
               controller: _dropoffCityController,
               decoration: InputDecoration(
-                labelText: 'Drop-off City',
-                hintText: 'Select Drop-off City',
+                labelText: 'Drop-off Governorate',
+                hintText: 'Select Drop-off Governorate',
                 prefixIcon: const Icon(Icons.location_city),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -441,10 +441,10 @@ class _NewDeliveryState extends State<NewDelivery> {
               controller: _dropoffRegionController,
               enabled: selectedDropoffCity != null,
               decoration: InputDecoration(
-                labelText: 'Drop-off Region',
+                labelText: 'Drop-off District',
                 hintText: selectedDropoffCity == null 
-                    ? 'Select a city first' 
-                    : 'Select region in ${selectedDropoffCity}',
+                    ? 'Select a Governorate first' 
+                    : 'Select District in ${selectedDropoffCity}',
                 prefixIcon: const Icon(Icons.location_on),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -544,7 +544,9 @@ class _NewDeliveryState extends State<NewDelivery> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Delivery'),
+        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: const Color.fromARGB(255, 3, 76, 83),
+        title: const Text('New Delivery',style: TextStyle(color: Colors.white),),
       ),
       body: Stack(
         children: [
@@ -561,7 +563,7 @@ class _NewDeliveryState extends State<NewDelivery> {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.blue[700]),
+                        Icon(Icons.info_outline, color:Color.fromARGB(255, 3, 76, 83)),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -592,7 +594,7 @@ class _NewDeliveryState extends State<NewDelivery> {
                 Card(
                   elevation: 2,
                   child: ListTile(
-                    leading: const Icon(Icons.calendar_today,color: Colors.blueAccent,),
+                    leading: const Icon(Icons.calendar_today,color:Color.fromARGB(255, 3, 76, 83),),
                     title: Text(
                       deliveryDate == null 
                           ? 'Select Delivery Date' 
@@ -615,7 +617,7 @@ class _NewDeliveryState extends State<NewDelivery> {
                 Card(
                   elevation: 2,
                   child: ListTile(
-                    leading: const Icon(Icons.access_time, color: Colors.blueAccent),
+                    leading: const Icon(Icons.access_time, color:Color.fromARGB(255, 3, 76, 83)),
                     title: Text(
                       deliveryTime == null 
                           ? 'Select Delivery Time' 
@@ -755,7 +757,7 @@ class _NewDeliveryState extends State<NewDelivery> {
                     label: const Text('Confirm Delivery', style: TextStyle(color: Colors.white)),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 15),
-                      backgroundColor: Colors.blue[700],
+                       backgroundColor: const Color.fromARGB(255, 3, 76, 83),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -812,7 +814,7 @@ class _NewDeliveryState extends State<NewDelivery> {
           children: [
             Row(
               children: [
-                Icon(Icons.category, color: Colors.blue[700]),
+                Icon(Icons.category, color: Color.fromARGB(255, 3, 76, 83)),
                 const SizedBox(width: 8),
                 const Text(
                   'Package Dimensions',
@@ -928,22 +930,20 @@ class _NewDeliveryState extends State<NewDelivery> {
     double basePrice = 5000.0; // Base price in IQD
 
     // Calculate distance factor
-    double distance = 0.0;
     if (selectedPickupCity != selectedDropoffCity) {
-      distance = cityDistances[selectedPickupCity]?[selectedDropoffCity] ?? 0.0;
     }
-    double distanceFactor = distance * 25.0; // 25 IQD per km
 
-    // Calculate volume in cubic centimeters
+    // Calculate volume pricing (1000 IQD per 100 cubic cm)
     double volume = package.height! * package.width! * package.depth!;
-    double volumeFactor = volume * 0.1; // 0.1 IQD per cubic cm
+    double volumePricing = (volume / 200).ceil() * 500.0;
 
-    // Weight factor
-    double weightFactor = package.weight! * 1000.0; // 1000 IQD per kg
+    // Calculate weight pricing (2000 IQD per 500g)
+    double weightInGrams = package.weight! * 1000; // Convert kg to grams
+    double weightPricing = (weightInGrams / 500).ceil() * 1500.0;
 
     // Calculate total price
     setState(() {
-      estimatedPrice = basePrice + distanceFactor + volumeFactor + weightFactor;
+      estimatedPrice = basePrice + volumePricing + weightPricing;
     });
   }
 

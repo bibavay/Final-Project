@@ -207,15 +207,15 @@ final List<String> carMaker = [
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        // backgroundColor: const Color.fromARGB(0, 0, 0, 0),
+        iconTheme: const IconThemeData(color: Colors.white),
+         backgroundColor: const Color.fromARGB(255, 3, 76, 83),
         elevation: 0,
         title: Text(
           "Sign Up",
           style: TextStyle(
-            // background: Paint()..color = Colors.amberAccent,
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: const Color.fromARGB(255, 167, 167, 167),
+            color: const Color.fromARGB(255, 255, 255, 255),
           ),
         ),
       ),
@@ -242,8 +242,7 @@ final List<String> carMaker = [
                 children: <Widget>[
                   const SizedBox(height: 20),
                  Column(
-  children: [
-    // Name Fields Row
+    children: [
     Row(
       children: [
         Expanded(
@@ -252,7 +251,7 @@ final List<String> carMaker = [
             decoration: InputDecoration(
               labelText: 'First Name',
               floatingLabelBehavior: FloatingLabelBehavior.auto,
-              prefixIcon: Icon(Icons.person_outline),
+              prefixIcon: Icon(Icons.person_outline,color:Color.fromARGB(255, 3, 76, 83)),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -263,7 +262,7 @@ final List<String> carMaker = [
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.blue, width: 2),
+                borderSide: BorderSide(color:Color.fromARGB(255, 3, 76, 83), width: 2),
               ),
               filled: true,
               fillColor: Colors.grey.shade50,
@@ -278,7 +277,7 @@ final List<String> carMaker = [
             decoration: InputDecoration(
               labelText: 'Last Name',
               floatingLabelBehavior: FloatingLabelBehavior.auto,
-              prefixIcon: Icon(Icons.person_outline),
+              prefixIcon: Icon(Icons.person_outline,color:Color.fromARGB(255, 3, 76, 83)),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -289,7 +288,7 @@ final List<String> carMaker = [
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.blue, width: 2),
+                borderSide: BorderSide(color: Color.fromARGB(255, 3, 76, 83), width: 2),
               ),
               filled: true,
               fillColor: Colors.grey.shade50,
@@ -308,7 +307,7 @@ final List<String> carMaker = [
       decoration: InputDecoration(
         labelText: 'Phone Number',
         floatingLabelBehavior: FloatingLabelBehavior.auto,
-        prefixIcon: Icon(Icons.phone_android_outlined),
+        prefixIcon: Icon(Icons.phone_android_outlined,color:Color.fromARGB(255, 3, 76, 83)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -319,7 +318,7 @@ final List<String> carMaker = [
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.blue, width: 2),
+          borderSide: BorderSide(color: Color.fromARGB(255, 3, 76, 83), width: 2),
         ),
         filled: true,
         fillColor: Colors.grey.shade50,
@@ -335,7 +334,7 @@ final List<String> carMaker = [
       decoration: InputDecoration(
         labelText: 'Email',
         floatingLabelBehavior: FloatingLabelBehavior.auto,
-        prefixIcon: Icon(Icons.email_outlined),
+        prefixIcon: Icon(Icons.email_outlined,color:Color.fromARGB(255, 3, 76, 83)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -346,7 +345,7 @@ final List<String> carMaker = [
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.blue, width: 2),
+          borderSide: BorderSide(color: Color.fromARGB(255, 3, 76, 83), width: 2),
         ),
         filled: true,
         fillColor: Colors.grey.shade50,
@@ -368,7 +367,7 @@ final List<String> carMaker = [
       decoration: InputDecoration(
         labelText: 'Password',
         floatingLabelBehavior: FloatingLabelBehavior.auto,
-        prefixIcon: Icon(Icons.lock_outline),
+        prefixIcon: Icon(Icons.lock_outline,color:Color.fromARGB(255, 3, 76, 83)),
         suffixIcon: IconButton(
           icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off),
           onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
@@ -383,7 +382,7 @@ final List<String> carMaker = [
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.blue, width: 2),
+          borderSide: BorderSide(color: Color.fromARGB(255, 3, 76, 83), width: 2),
         ),
         filled: true,
         fillColor: Colors.grey.shade50,
@@ -399,7 +398,7 @@ final List<String> carMaker = [
       decoration: InputDecoration(
         labelText: 'Confirm Password',
         floatingLabelBehavior: FloatingLabelBehavior.auto,
-        prefixIcon: Icon(Icons.lock_outline),
+        prefixIcon: Icon(Icons.lock_outline,color:Color.fromARGB(255, 3, 76, 83)),
         suffixIcon: IconButton(
           icon: Icon(_isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off),
           onPressed: () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
@@ -414,7 +413,7 @@ final List<String> carMaker = [
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.blue, width: 2),
+          borderSide: BorderSide(color:Color.fromARGB(255, 3, 76, 83), width: 2),
         ),
         filled: true,
         fillColor: Colors.grey.shade50,
@@ -437,7 +436,7 @@ final List<String> carMaker = [
     filled: true,
         fillColor: Colors.grey.shade50,
     suffixIcon: PopupMenuButton<String>(
-      icon: Icon(Icons.arrow_drop_down),
+      icon: Icon(Icons.arrow_drop_down,color: Color.fromARGB(255, 3, 76, 83),),
       onSelected: (String value) {
         setState(() {
           selectedGovernorate = value;
@@ -464,14 +463,14 @@ TextFormField(
     hintText: selectedGovernorate == null 
         ? 'Select governorate first' 
         : 'Select district',
-    prefixIcon: Icon(Icons.location_on),
+    prefixIcon: Icon(Icons.location_on,color: Color.fromARGB(255, 3, 76, 83),),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
     ),
     filled: true,
         fillColor: Colors.grey.shade50,
     suffixIcon: PopupMenuButton<String>(
-      icon: Icon(Icons.arrow_drop_down),
+      icon: Icon(Icons.arrow_drop_down,color:Color.fromARGB(255, 3, 76, 83)),
       enabled: selectedGovernorate != null,
       onSelected: (String value) {
         setState(() {
@@ -521,7 +520,7 @@ TextFormField(
       );
     }
   },
-  icon: const Icon(Icons.my_location, color: Colors.white),
+  icon: const Icon(Icons.my_location, color:Color.fromARGB(255, 3, 76, 83)),
   label: const Text('Get Current Location', style: TextStyle(color: Colors.white)),
   style: ElevatedButton.styleFrom(
     backgroundColor: Colors.blue[700],
@@ -542,22 +541,22 @@ TextFormField(
                     value: _gender,
                     decoration: InputDecoration(
                       labelText: 'Gender',
-                      prefixIcon: Icon(Icons.person_outline),
+                      prefixIcon: Icon(Icons.person_outline,color: Color.fromARGB(255, 3, 76, 83),),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.blue, width: 2),
+                        borderSide: BorderSide(color:Color.fromARGB(255, 3, 76, 83), width: 2),
                       ),
                       filled: true,
-        fillColor: Colors.grey.shade50,
+                        fillColor: Colors.grey.shade50,
                     ),
                     items: const [
                       DropdownMenuItem(
                         value: 'male',
                         child: Row(
                           children: [
-                            Icon(Icons.male),
+                            Icon(Icons.male,color:Colors.blue,),
                             SizedBox(width: 8),
                             Text('Male'),
                           ],
@@ -567,7 +566,7 @@ TextFormField(
                         value: 'female',
                         child: Row(
                           children: [
-                            Icon(Icons.female),
+                            Icon(Icons.female,color: Color.fromARGB(255, 236, 0, 122),),
                             SizedBox(width: 8),
                             Text('Female'),
                           ],
@@ -593,7 +592,7 @@ TextFormField(
                     value: _User,
                     decoration: InputDecoration(
                       labelText: 'User Type',
-                      prefixIcon: Icon(Icons.person_pin_outlined),
+                      prefixIcon: Icon(Icons.person_pin_outlined,color:Color.fromARGB(255, 3, 76, 83)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -605,7 +604,7 @@ TextFormField(
                         value: 'Customer',
                         child: Row(
                           children: [
-                            Icon(Icons.person),
+                            Icon(Icons.person,color:Color.fromARGB(255, 3, 76, 83)),
                             SizedBox(width: 8),
                             Text('Customer'),
                           ],
@@ -615,7 +614,7 @@ TextFormField(
                         value: 'Driver',
                         child: Row(
                           children: [
-                            Icon(Icons.drive_eta),
+                            Icon(Icons.drive_eta,color:Color.fromARGB(255, 3, 76, 83)),
                             SizedBox(width: 8),
                             Text('Driver'),
                           ],
@@ -644,7 +643,7 @@ TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Car Type',
                         hintText: 'Select or enter car type',
-                        prefixIcon: Icon(Icons.directions_car),
+                        prefixIcon: Icon(Icons.directions_car,color:Color.fromARGB(255, 3, 76, 83)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         suffixIcon: PopupMenuButton<String>(
                           icon: Icon(Icons.arrow_drop_down),
@@ -671,7 +670,7 @@ TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Car Maker',
                         hintText: 'Select or enter car maker',
-                        prefixIcon: Icon(Icons.factory),
+                        prefixIcon: Icon(Icons.factory,color: Color.fromARGB(255, 3, 76, 83)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         suffixIcon: PopupMenuButton<String>(
                           icon: Icon(Icons.arrow_drop_down),
@@ -698,7 +697,7 @@ TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Car Model',
                         hintText: 'Select or enter car model',
-                        prefixIcon: Icon(Icons.car_rental),
+                        prefixIcon: Icon(Icons.car_rental,color:Color.fromARGB(255, 3, 76, 83),),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         suffixIcon: PopupMenuButton<String>(
                           icon: Icon(Icons.arrow_drop_down),
@@ -725,7 +724,7 @@ TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Car Year',
                         hintText: 'Select or enter car year',
-                        prefixIcon: Icon(Icons.calendar_today),
+                        prefixIcon: Icon(Icons.calendar_today,color:Color.fromARGB(255, 3, 76, 83),),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         suffixIcon: PopupMenuButton<String>(
                           icon: Icon(Icons.arrow_drop_down),
@@ -760,10 +759,10 @@ TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Car Color',
                         hintText: 'Select or enter car color',
-                        prefixIcon: Icon(Icons.color_lens),
+                        prefixIcon: Icon(Icons.color_lens,color:Color.fromARGB(255, 3, 76, 83)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         suffixIcon: PopupMenuButton<String>(
-                          icon: Icon(Icons.arrow_drop_down),
+                          icon: Icon(Icons.arrow_drop_down,color:Color.fromARGB(255, 3, 76, 83)),
                           onSelected: (String value) {
                             setState(() {
                               selectedCarColor = value;
@@ -787,7 +786,7 @@ TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Car Plate Number',
                         hintText: 'Enter plate number',
-                        prefixIcon: Icon(Icons.numbers_outlined),
+                        prefixIcon: Icon(Icons.numbers_outlined,color:Color.fromARGB(255, 3, 76, 83)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
                         ),
                         filled: true,
@@ -803,10 +802,10 @@ TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Max Passengers Number',
                         hintText: 'Select or enter number',
-                        prefixIcon: Icon(Icons.person_rounded),
+                        prefixIcon: Icon(Icons.person_rounded,color:Color.fromARGB(255, 3, 76, 83)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         suffixIcon: PopupMenuButton<String>(
-                          icon: Icon(Icons.arrow_drop_down),
+                          icon: Icon(Icons.arrow_drop_down,color: Color.fromARGB(255, 3, 76, 83),),
                           onSelected: (String value) {
                             setState(() {
                               _passNumberTextController.text = value;
@@ -834,8 +833,7 @@ TextFormField(
                     ),
                   ],
                   //!firebase button
-                  const SizedBox(height: 20),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 40),
                   firebaseButton(
                     context,
                     "Sign Up",

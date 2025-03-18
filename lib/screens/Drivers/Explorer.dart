@@ -23,6 +23,7 @@ class _ExplorerState extends State<Explorer> {
   Stream<List<ActiveOrder>> _getActiveTrips() {
     Query baseQuery = _firestore.collection('trips');
     final now = DateTime.now();
+    final driverId = _auth.currentUser?.uid;
     
     return baseQuery
         .where('status', whereIn: ['pending', 'driver_pending', 'confirmed'])
@@ -32,21 +33,49 @@ class _ExplorerState extends State<Explorer> {
             List<ActiveOrder> allOrders = snapshot.docs
                 .map((doc) => ActiveOrder.fromFirestore(doc))
                 .where((order) {
-                  // Check if order is still valid based on time for confirmed orders
                   final orderTime = order.dateTime;
-                  final isTimeValid = order.status == 'confirmed' ? 
-                      orderTime.isAfter(now) : true;
-
-                  return isTimeValid && (
-                    order.status == 'pending' ||
-                    order.status == 'driver_pending' ||
-                    (order.status == 'confirmed' && (
-                      order.details['pendingDriverId'] == _auth.currentUser?.uid ||
-                      order.details['driverId'] == _auth.currentUser?.uid
-                    ))
-                  );
+                  
+                  // Debug prints
+                  print('Order Status: ${order.status}');
+                  print('Order DriverId: ${order.details['driverId']}');
+                  print('Current DriverId: $driverId');
+                  
+                  // Modified condition to properly check confirmed orders
+                  if (order.status == 'confirmed') {
+                    return order.details['driverId'] == driverId;
+                  }
+                  
+                  return order.status == 'pending' ||
+                         (order.status == 'driver_pending' && 
+                          order.details['pendingDriverId'] == driverId);
                 })
                 .toList();
+            
+            // Sort orders
+            allOrders.sort((a, b) {
+              int getPriority(String status) {
+                switch (status) {
+                  case 'confirmed': return 2;
+                  case 'driver_pending': return 1;
+                  case 'pending': return 0;
+                  default: return -1;
+                }
+              }
+              
+              int priorityA = getPriority(a.status);
+              int priorityB = getPriority(b.status);
+              
+              if (priorityA != priorityB) {
+                return priorityB.compareTo(priorityA);
+              }
+              return b.dateTime.compareTo(a.dateTime);
+            });
+            
+            // Debug print final list
+            print('Final Orders Count: ${allOrders.length}');
+            allOrders.forEach((order) {
+              print('Order ID: ${order.id}, Status: ${order.status}');
+            });
             
             return allOrders;
         });
@@ -56,6 +85,7 @@ class _ExplorerState extends State<Explorer> {
   Stream<List<ActiveOrder>> _getActiveDeliveries() {
     Query baseQuery = _firestore.collection('deliveries');
     final now = DateTime.now();
+    final driverId = _auth.currentUser?.uid;
     
     return baseQuery
         .where('status', whereIn: ['pending', 'driver_pending', 'confirmed'])
@@ -65,21 +95,19 @@ class _ExplorerState extends State<Explorer> {
             List<ActiveOrder> allOrders = snapshot.docs
                 .map((doc) => ActiveOrder.fromFirestore(doc))
                 .where((order) {
-                  // Check if order is still valid based on time for confirmed orders
-                  final orderTime = order.dateTime;
-                  final isTimeValid = order.status == 'confirmed' ? 
-                      orderTime.isAfter(now) : true;
-
-                  return isTimeValid && (
-                    order.status == 'pending' ||
-                    order.status == 'driver_pending' ||
-                    (order.status == 'confirmed' && (
-                      order.details['pendingDriverId'] == _auth.currentUser?.uid ||
-                      order.details['driverId'] == _auth.currentUser?.uid
-                    ))
-                  );
+                  // Modified condition to properly check confirmed orders
+                  if (order.status == 'confirmed') {
+                    return order.details['driverId'] == driverId;
+                  }
+                  
+                  return order.status == 'pending' ||
+                         (order.status == 'driver_pending' && 
+                          order.details['pendingDriverId'] == driverId);
                 })
                 .toList();
+            
+            // Same sorting logic as trips...
+            // ... existing sorting code ...
             
             return allOrders;
         });

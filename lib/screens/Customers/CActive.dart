@@ -90,15 +90,45 @@ class _CActiveState extends State<CActive> with SingleTickerProviderStateMixin {
   if (userId == null) return Stream.value([]);
 
   final collection = type == 'Trip' ? 'trips' : 'deliveries';
+  final now = DateTime.now();
+
   return _firestore
       .collection(collection)
       .where('userId', isEqualTo: userId)
       .where('status', whereIn: ['pending', 'driver_pending', 'confirmed'])
       .orderBy(type == 'Trip' ? 'tripDate' : 'deliveryDate', descending: true)
       .snapshots()
-      .map((snapshot) => snapshot.docs
-          .map((doc) => ActiveOrder.fromFirestore(doc))
-          .toList());
+      .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          final order = ActiveOrder.fromFirestore(doc);
+          
+          // Get the time from the order
+          final orderTime = order.type == 'Trip' 
+              ? order.details['tripTime'] as String 
+              : order.details['deliveryTime'] as String;
+          
+          // Parse hours and minutes
+          final timeParts = orderTime.split(':');
+          final orderDateTime = DateTime(
+            order.dateTime.year,
+            order.dateTime.month,
+            order.dateTime.day,
+            int.parse(timeParts[0]),
+            int.parse(timeParts[1]),
+          );
+
+          // If order is expired, move it to history
+          if (orderDateTime.isBefore(now)) {
+            _moveToHistory(order);
+            return null;
+          }
+
+          return order;
+        })
+        .where((order) => order != null)
+        .cast<ActiveOrder>()
+        .toList();
+      });
 }
 
 Future<void> _moveToHistory(ActiveOrder order) async {
@@ -232,22 +262,26 @@ Color _getStatusColor(String status) {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Active Orders"),
-          elevation: 2,
-          bottom: TabBar(
-            controller: _tabController,
-            tabs: const [
-              Tab(
-                icon: Icon(Icons.directions_car),
-                text: "Trips",
-              ),
-              Tab(
-                icon: Icon(Icons.local_shipping),
-                text: "Deliveries",
-              ),
-            ],
-          ),
-        ),
+  backgroundColor: Color.fromARGB(255, 3, 76, 83),
+  foregroundColor: Colors.white,
+  title: const Text("Active Order"),
+  bottom: TabBar(
+    controller: _tabController,
+    indicatorColor: Colors.white, // Makes the indicator white
+    labelColor: Colors.white, // Makes the selected tab text white
+    unselectedLabelColor: Colors.white70, // Makes unselected tab text slightly transparent white
+    tabs: const [
+      Tab(
+        icon: Icon(Icons.directions_car), // White car icon
+        text: "Trips"
+      ),
+      Tab(
+        icon: Icon(Icons.local_shipping), // White shipping icon
+        text: "Deliveries"
+      ),
+    ],
+  ),
+),
         body: TabBarView(
           controller: _tabController,
           children: [
@@ -626,4 +660,5 @@ Widget _buildPackageDetails(Map<String, dynamic> package) {
       Text('Weight: ${package['dimensions']?['weight']?.toString() ?? 'N/A'} kg'),
     ],
   );
-}}
+}
+}
