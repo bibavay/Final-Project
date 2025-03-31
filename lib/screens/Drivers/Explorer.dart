@@ -700,8 +700,8 @@ class _ExplorerState extends State<Explorer> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => Droute(
-                      orderDetails: details,
-                      orderType: details['type'] ?? 'Order',
+                     // orderDetails: details,
+                      //orderType: details['type'] ?? 'Order',
                     ),
                   ),
                 );

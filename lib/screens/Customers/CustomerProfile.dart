@@ -511,19 +511,20 @@ class _CustomerProfileState extends State<CustomerProfile> {
                           if (!shouldLogout) return;
 
                           try {
-                            await FirebaseAuth.instance.signOut();
+                            await _auth.signOut();
                             if (!mounted) return;
                             
-                            // Clear all routes and navigate to signin screen
-                            Navigator.of(context).pushNamedAndRemoveUntil(
-                              '/signin_screen', // Update this to match your signin route name
-                              (Route<dynamic> route) => false,
+                            // Navigate to signin screen and clear navigation stack
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/signin', // Make sure this matches the route name in your main.dart
+                              (route) => false,
                             );
                           } catch (e) {
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Error signing out: $e'),
+                                content: Text('Error logging out: $e'),
                                 backgroundColor: Colors.red,
                               ),
                             );

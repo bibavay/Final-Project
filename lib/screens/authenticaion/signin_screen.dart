@@ -119,28 +119,42 @@ class _SigninScreenState extends State<SigninScreen> {
                 begin: Alignment.topCenter, end: Alignment.bottomCenter
               )),
               child: SingleChildScrollView(
-                child: Padding(padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).size.height * 0.2,20,0),
+                child: Padding(
+                  // Reduce the top padding from 0.2 to 0.1 of screen height
+                  padding: EdgeInsets.fromLTRB(
+                    20, 
+                    MediaQuery.of(context).size.height * 0.1, // Changed from 0.2 to 0.1
+                    20,
+                    0
+                  ),
                   child: Column(
                     children: <Widget>[
                       Container(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.all(0.0), // Removed padding from parent container
                         child: Column(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.local_shipping_rounded,
-                                  size: 80,
-                                  color: Colors.blue[700],
+                            Container(
+                              width: 160,  // Reduced width
+                              height: 160, // Reduced height
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(15),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    spreadRadius: 1,
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(15),
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.cover, // Changed to cover for better filling
                                 ),
-                                const SizedBox(width: 10),
-                                Icon(
-                                  Icons.location_on_rounded,
-                                  size: 80,
-                                  color: Colors.red[700],
-                                ),
-                              ],
+                              ),
                             ),
                           ],
                         ),

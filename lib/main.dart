@@ -1,7 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_4th_year_project/firebase_options.dart';
-import 'package:flutter_application_4th_year_project/screens/authenticaion/signin_screen.dart';
+import 'package:flutter_application_4th_year_project/screens/splashScreen.dart';
+import 'screens/authenticaion/signin_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,12 +22,14 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: "Delivery and transprtation",
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color.fromARGB(255, 5, 133, 114)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color.fromARGB(255, 5, 133, 114)
+        ),
         useMaterial3: true,
       ),
-      home: const SigninScreen(),
+      home: const SplashScreen(),
       routes: {
-        '/signin_screen': (context) => const SigninScreen(), // Update with your actual signin screen
+        '/signin': (context) => const SigninScreen(), // Update route name to match
         // ...other routes...
       },
     );

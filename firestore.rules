@@ -7,5 +7,8 @@ service cloud.firestore {
       allow update: if request.auth != null && request.auth.uid == userId
         && request.resource.data.keys().hasAll(['firstName', 'lastName', 'phone']);
     }
+    match /orders/{orderId} {
+      allow read: if true;  // Adjust based on your security requirements
+    }
   }
 }
