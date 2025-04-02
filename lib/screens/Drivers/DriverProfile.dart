@@ -124,60 +124,91 @@ class _DriverProfileState extends State<DriverProfile> {
 
   Future<Map<String, dynamic>> _getDriverRatings() async {
     try {
-      final feedbacks = await _firestore
-          .collection('feedback')
-          .where('driverId', isEqualTo: _auth.currentUser?.uid)
-          .get();
-
-      if (feedbacks.docs.isEmpty) {
-        return {
-          'overallRating': 0.0,
-          'professionalism': 0.0,
-          'drivingSkills': 0.0,
-          'punctuality': 0.0,
-          'vehicleCondition': 0.0,
-          'totalRatings': 0,
-        };
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) {
+        return _getDefaultRatings();
       }
 
-      double sumOverall = 0;
-      double sumProfessionalism = 0;
-      double sumDriving = 0;
-      double sumPunctuality = 0;
-      double sumVehicle = 0;
-      int count = 0;
+      // Get all trips and deliveries where this user is the driver
+      final tripsQuery = await _firestore
+          .collection('trips')
+          .where('driverId', isEqualTo: userId)
+          .where('feedbackGiven', isEqualTo: true)
+          .get();
 
-      for (var doc in feedbacks.docs) {
-        final ratings = List<Map<String, dynamic>>.from(doc.data()['ratings']);
-        if (ratings.isNotEmpty) {
-          sumProfessionalism += ratings[0]['rating'];
-          sumDriving += ratings[1]['rating'];
-          sumPunctuality += ratings[2]['rating'];
-          sumVehicle += ratings[3]['rating'];
-          sumOverall += ratings[4]['rating'];
-          count++;
-        }
+      final deliveriesQuery = await _firestore
+          .collection('deliveries')
+          .where('driverId', isEqualTo: userId)
+          .where('feedbackGiven', isEqualTo: true)
+          .get();
+
+      // Collect all feedback IDs
+      List<String> feedbackIds = [];
+      feedbackIds.addAll(tripsQuery.docs.map((doc) => doc.data()['feedbackId'] as String));
+      feedbackIds.addAll(deliveriesQuery.docs.map((doc) => doc.data()['feedbackId'] as String));
+
+      if (feedbackIds.isEmpty) {
+        return _getDefaultRatings();
+      }
+
+      // Get all feedback documents
+      final feedbacks = await Future.wait(
+        feedbackIds.map((id) => _firestore.collection('feedback').doc(id).get())
+      );
+
+      double sumProfessionalism = 0;
+      double sumDrivingSkills = 0;
+      double sumPunctuality = 0;
+      double sumVehicleCondition = 0;
+      double sumOverall = 0;
+      int validFeedbackCount = 0;
+
+      for (var doc in feedbacks) {
+        if (!doc.exists) continue;
+        
+        final data = doc.data();
+        if (data == null) continue;
+
+        final ratings = List<Map<String, dynamic>>.from(data['ratings']);
+        if (ratings.isEmpty) continue;
+
+        // Assuming the ratings array follows the order:
+        // [professionalism, driving skills, punctuality, vehicle condition]
+        sumProfessionalism += ratings[0]['rating'];
+        sumDrivingSkills += ratings[1]['rating'];
+        sumPunctuality += ratings[2]['rating'];
+        sumVehicleCondition += ratings[3]['rating'];
+        
+        // Calculate overall rating as average of all ratings for this feedback
+        double feedbackOverall = ratings.fold(0.0, (sum, item) => sum + item['rating']) / ratings.length;
+        sumOverall += feedbackOverall;
+        
+        validFeedbackCount++;
       }
 
       return {
-        'overallRating': count > 0 ? (sumOverall / count) : 0.0,
-        'professionalism': count > 0 ? (sumProfessionalism / count) : 0.0,
-        'drivingSkills': count > 0 ? (sumDriving / count) : 0.0,
-        'punctuality': count > 0 ? (sumPunctuality / count) : 0.0,
-        'vehicleCondition': count > 0 ? (sumVehicle / count) : 0.0,
-        'totalRatings': count,
+        'overallRating': validFeedbackCount > 0 ? (sumOverall / validFeedbackCount) : 0.0,
+        'professionalism': validFeedbackCount > 0 ? (sumProfessionalism / validFeedbackCount) : 0.0,
+        'drivingSkills': validFeedbackCount > 0 ? (sumDrivingSkills / validFeedbackCount) : 0.0,
+        'punctuality': validFeedbackCount > 0 ? (sumPunctuality / validFeedbackCount) : 0.0,
+        'vehicleCondition': validFeedbackCount > 0 ? (sumVehicleCondition / validFeedbackCount) : 0.0,
+        'totalRatings': validFeedbackCount,
       };
     } catch (e) {
       print('Error calculating ratings: $e');
-      return {
-        'overallRating': 0.0,
-        'professionalism': 0.0,
-        'drivingSkills': 0.0,
-        'punctuality': 0.0,
-        'vehicleCondition': 0.0,
-        'totalRatings': 0,
-      };
+      return _getDefaultRatings();
     }
+  }
+
+  Map<String, dynamic> _getDefaultRatings() {
+    return {
+      'overallRating': 0.0,
+      'professionalism': 0.0,
+      'drivingSkills': 0.0,
+      'punctuality': 0.0,
+      'vehicleCondition': 0.0,
+      'totalRatings': 0,
+    };
   }
 
   Future<Map<String, int>> _getDriverStatistics() async {
