@@ -52,45 +52,51 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
 
   Stream<List<Map<String, dynamic>>> _getExpiredOrders(String type) {
     final userId = _auth.currentUser?.uid;
-    print('Current userId: $userId'); // Debug log
+    print('Current userId: $userId');
 
     if (userId == null) return Stream.value([]);
 
     final collection = type == 'Trip' ? 'trips' : 'deliveries';
     final now = DateTime.now();
-    print('Querying collection: $collection'); // Debug log
 
     return _firestore
         .collection(collection)
         .where('userId', isEqualTo: userId)
         .snapshots()
         .map((snapshot) {
-          print('Number of documents found: ${snapshot.docs.length}'); // Debug log
+          print('Number of documents found: ${snapshot.docs.length}');
           
           try {
             final orders = snapshot.docs.map((doc) {
               final data = doc.data();
-              print('Processing document: ${doc.id}'); // Debug log
-              print('Document data: $data'); // Debug log
               
-              // Parse date and time
-              final orderDate = type == 'Trip' 
-                  ? (data['tripDate'] as Timestamp).toDate()
-                  : (data['deliveryDate'] as Timestamp).toDate();
+              // Parse date and time based on type
+              Timestamp? orderTimestamp;
+              String? orderTimeStr;
               
-              final orderTime = type == 'Trip' 
-                  ? data['tripTime'] as String
-                  : data['deliveryTime'] as String;
+              if (type == 'Trip') {
+                orderTimestamp = data['tripDate'] as Timestamp?;
+                orderTimeStr = data['tripTime'] as String?;
+              } else {
+                orderTimestamp = data['deliveryDate'] as Timestamp?;
+                orderTimeStr = data['deliveryTime'] as String?;
+              }
+
+              if (orderTimestamp == null || orderTimeStr == null) {
+                print('Missing date/time for order ${doc.id}');
+                return null;
+              }
+
+              final orderDate = orderTimestamp.toDate();
               
-              print('Order date: $orderDate, time: $orderTime'); // Debug log
-              
-              // Combine date and time into DateTime object
+              // Parse time string (HH:mm)
+              final timeParts = orderTimeStr.split(':');
               final orderDateTime = DateTime(
                 orderDate.year,
                 orderDate.month,
                 orderDate.day,
-                int.parse(orderTime.split(':')[0]),
-                int.parse(orderTime.split(':')[1]),
+                int.parse(timeParts[0]),
+                int.parse(timeParts[1]),
               );
 
               return {
@@ -98,24 +104,25 @@ class _CHistoryState extends State<CHistory> with SingleTickerProviderStateMixin
                 'id': doc.id,
                 'orderDateTime': orderDateTime,
               };
-            }).where((order) {
+            })
+            .where((order) => order != null) // Remove null entries
+            .map((order) => order!) // Convert to non-null
+            .where((order) {
               final orderDateTime = order['orderDateTime'] as DateTime;
               final status = order['status'] as String;
               
-              print('Checking order: DateTime: $orderDateTime, Status: $status, Is Expired: ${orderDateTime.isBefore(now)}'); // Debug log
-              
               return status == 'completed' || 
                      status == 'cancelled' ||
-                     orderDateTime.isBefore(now) ||
-                     ((status == 'confirmed' || status == 'accepted') && 
-                      orderDateTime.isBefore(now));
+                     orderDateTime.isBefore(now);
             }).toList();
 
-            print('Final filtered orders count: ${orders.length}'); // Debug log
+            // Sort orders by datetime in descending order
+            orders.sort((a, b) => (b['orderDateTime'] as DateTime)
+                .compareTo(a['orderDateTime'] as DateTime));
+
             return orders;
           } catch (e) {
-            print('Error processing orders: $e'); // More detailed error logging
-            print(e.toString());
+            print('Error processing orders: $e');
             return [];
           }
         });
