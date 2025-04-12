@@ -62,6 +62,41 @@ class _CEmailverifyState extends State<CEmailverify> {
     });
   }
 
+  Future<void> _handleCancel() async {
+    final bool? shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Verification?',style: TextStyle(fontSize: 22),),
+        content: const Text('Are you sure you want to cancel the email verification process?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Yes',style: TextStyle(color: Colors.redAccent),),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldCancel == true && mounted) {
+      try {
+        await FirebaseAuth.instance.signOut();
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error signing out: ${e.toString()}')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -73,7 +108,7 @@ class _CEmailverifyState extends State<CEmailverify> {
             const Icon(
               Icons.mark_email_unread_outlined,
               size: 100,
-              color: Colors.blue,
+              color:Color.fromARGB(255, 3, 76, 83),
             ),
             const SizedBox(height: 30),
             const Text(
@@ -87,13 +122,13 @@ class _CEmailverifyState extends State<CEmailverify> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                color:Color.fromARGB(255, 3, 76, 83),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 'We have sent a verification link to ${FirebaseAuth.instance.currentUser?.email}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: 16, color: Colors.white),
               ),
             ),
             const SizedBox(height: 24),
@@ -103,11 +138,11 @@ class _CEmailverifyState extends State<CEmailverify> {
               style: TextButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
               ),
-              child: const Text(
+              child: Text(
                 'Cancel',
                 style: TextStyle(fontSize: 16),
               ),
-              onPressed: () => FirebaseAuth.instance.signOut(),
+              onPressed: _handleCancel,
             ),
             const SizedBox(height: 24),
             CircularProgressIndicator(),
@@ -148,7 +183,7 @@ class _CEmailverifyState extends State<CEmailverify> {
           onPressed: canResendEmail ? verifyEmail : null,
           style: ElevatedButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
-            backgroundColor: canResendEmail ? Colors.blue : Colors.grey,
+            backgroundColor: canResendEmail ?Color.fromARGB(255, 3, 76, 83) : Colors.grey,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
@@ -170,7 +205,7 @@ class _CEmailverifyState extends State<CEmailverify> {
             child: LinearProgressIndicator(
               value: timeLeft / 60,
               backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              valueColor: AlwaysStoppedAnimation<Color>(Color.fromARGB(255, 3, 76, 83)),
             ),
           ),
       ],

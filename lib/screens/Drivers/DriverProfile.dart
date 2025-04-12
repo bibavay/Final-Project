@@ -477,8 +477,9 @@ class _DriverProfileState extends State<DriverProfile> {
                           color: Colors.white,
                         ),
                       ),
+
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 3, 76, 83),
+                          backgroundColor: const Color.fromARGB(197, 163, 6, 6),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -740,16 +741,13 @@ class _DriverProfileState extends State<DriverProfile> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('No'),
+            child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Yes'),
-          ),
+          TextButton(
+           onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Logout', 
+           style: TextStyle(color: Colors.red)),
+           ),
         ],
       ),
     );

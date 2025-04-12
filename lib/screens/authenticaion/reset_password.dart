@@ -22,7 +22,9 @@ class _ResetPasswordState extends State<ResetPassword> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reset Password'),
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Reset Password',style: TextStyle(color: Colors.white),),
+        backgroundColor: const Color.fromARGB(255, 3, 76, 83),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -36,14 +38,14 @@ class _ResetPasswordState extends State<ResetPassword> {
               Center(
                 child: Column(
                   children: [
-                    Icon(Icons.lock_reset, size: 100, color: Colors.blue[700]),
+                    Icon(Icons.lock_reset, size: 100, color: Color.fromARGB(216, 255, 123, 0)),
                     const SizedBox(height: 16),
                     Text(
                       'Reset Your Password',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue[900],
+                        color:Color.fromARGB(255, 3, 76, 83),
                       ),
                     ),
                   ],
@@ -54,11 +56,12 @@ class _ResetPasswordState extends State<ResetPassword> {
               TextFormField(
                 controller: _emailTextController,
                 decoration: InputDecoration(
-                  labelText: 'Email',
+                  hintText: 'Enter your email address',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  prefixIcon: const Icon(Icons.email),
+                  prefixIcon: const Icon(Icons.email, color: Color.fromARGB(255, 3, 76, 83),
+                  ),
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
@@ -113,8 +116,8 @@ class _ResetPasswordState extends State<ResetPassword> {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.blue[700],
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: Color.fromARGB(255, 3, 76, 83),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/reusabile_widget/reusabile_widget.dart';
 import 'package:flutter_application_4th_year_project/screens/Customers/Cemailverification.dart';
 import 'package:flutter_application_4th_year_project/screens/Customers/location_picker.dart';
 import 'package:flutter_application_4th_year_project/screens/Drivers/Demailverification.dart';
@@ -202,6 +201,29 @@ final List<String> carMaker = [
     );
   }
 
+  void _showErrorDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title, 
+          style: TextStyle(
+            color: Color.fromARGB(255, 3, 76, 83),
+            fontWeight: FontWeight.bold
+          )
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('OK', 
+              style: TextStyle(color: Color.fromARGB(255, 3, 76, 83))
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -214,7 +236,6 @@ final List<String> carMaker = [
           "Sign Up",
           style: TextStyle(
             fontSize: 24,
-            fontWeight: FontWeight.bold,
             color: const Color.fromARGB(255, 255, 255, 255),
           ),
         ),
@@ -306,6 +327,7 @@ final List<String> carMaker = [
       keyboardType: TextInputType.phone,
       decoration: InputDecoration(
         labelText: 'Phone Number',
+        hintText: '07XXXXXXXXX',
         floatingLabelBehavior: FloatingLabelBehavior.auto,
         prefixIcon: Icon(Icons.phone_android_outlined,color:Color.fromARGB(255, 3, 76, 83)),
         border: OutlineInputBorder(
@@ -323,7 +345,9 @@ final List<String> carMaker = [
         filled: true,
         fillColor: Colors.grey.shade50,
       ),
-      validator: (value) => value?.isEmpty ?? true ? 'Please enter phone number' : null,
+      validator: validateIraqiPhoneNumber,
+      maxLength: 11,
+      buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
     ),
     const SizedBox(height: 20),
     
@@ -520,21 +544,16 @@ TextFormField(
       );
     }
   },
-  icon: const Icon(Icons.my_location, color:Color.fromARGB(255, 3, 76, 83)),
+  icon: const Icon(Icons.my_location, color:Color.fromARGB(255, 255, 255, 255)),
   label: const Text('Get Current Location', style: TextStyle(color: Colors.white)),
   style: ElevatedButton.styleFrom(
-    backgroundColor: Colors.blue[700],
-    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+    backgroundColor: Color.fromARGB(255, 3, 76, 83),
+
+    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 60),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
   ),
 ),
                   const SizedBox(height: 20),
-                  // reusableTextField(
-                  //   "Current Location",
-                  //   Icons.location_on,
-                  //   false,
-                  //   _locationTextController,
-                  // ),
                   //! gender
                   const SizedBox(height: 20),
                   DropdownButtonFormField<String>(
@@ -637,7 +656,6 @@ TextFormField(
                   const SizedBox(height: 20),
                   if (_User == 'Driver') ...[
                     //! Car Type
-                    const SizedBox(height: 20),
                     TextFormField(
                       controller: _carTypeTextController,
                       decoration: InputDecoration(
@@ -834,97 +852,155 @@ TextFormField(
                   ],
                   //!firebase button
                   const SizedBox(height: 40),
-                  firebaseButton(
-                    context,
-                    "Sign Up",
-                    () async {
-                      if (_formKey.currentState!.validate()) {
-                        try {
-                          // Validate phone number input
-                          if (_phoneNumberController.text.isEmpty) {
-                            throw FormatException("Phone number cannot be empty");
-                          }
-                          int phoneNumber = int.parse(_phoneNumberController.text);
+                  Container(
+                    
+                    width: MediaQuery.of(context).size.width,
+                    padding: const EdgeInsets.symmetric(horizontal: 10 ),
+                  
+                    child: ElevatedButton(
+    onPressed: () async {
+      if (_formKey.currentState!.validate()) {
+        try {
+          // Show loading indicator
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => Center(
+              child: CircularProgressIndicator(
+                color: Color.fromARGB(255, 3, 76, 83),
+              ),
+            ),
+          );
 
-                          // Validate location input
-                          List<String> locationParts = _locationTextController.text.split(', ');
-                          if (locationParts.length != 2) {
-                            throw FormatException("Invalid location format");
-                          }
-                          double latitude = double.parse(locationParts[0].split(': ')[1]);
-                          double longitude = double.parse(locationParts[1].split(': ')[1]);
+          // Validate phone number
+          String phoneNumber = _phoneNumberController.text.trim();
+          String? phoneError = validateIraqiPhoneNumber(phoneNumber);
+          if (phoneError != null) {
+            Navigator.pop(context); // Remove loading indicator
+            _showErrorDialog(context, 'Invalid Phone Number', phoneError);
+            return;
+          }
 
-                          final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-                            email: _emailTextController.text,
-                            password: _passwordTextController.text,
-                          );
+          // Validate location
+          if (_locationTextController.text.isEmpty) {
+            Navigator.pop(context); // Remove loading indicator
+            _showErrorDialog(context, 'Location Required', 'Please select your location');
+            return;
+          }
 
-                          if (userCredential.user != null) {
-                            if (_User == 'Driver') {
-                              // Validate passenger number input
-                              if (_passNumberTextController.text.isEmpty) {
-                                throw FormatException("Passenger number cannot be empty");
-                              }
-                              int passengerNumber = int.parse(_passNumberTextController.text);
+          final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: _emailTextController.text,
+            password: _passwordTextController.text,
+          );
 
-                              // Validate car year input
-                              if (_carYearTextController.text.isEmpty) {
-                                throw FormatException("Car year cannot be empty");
-                              }
-                              int carYear = int.parse(_carYearTextController.text);
+          if (userCredential.user != null) {
+            if (_User == 'Driver') {
+              // Validate passenger number input
+              if (_passNumberTextController.text.isEmpty) {
+                throw FormatException("Passenger number cannot be empty");
+              }
+              int passengerNumber = int.parse(_passNumberTextController.text);
 
-                              await firestoreService.addDriver(
-                                userCredential.user!.uid, // Add UID
-                                _emailTextController.text,
-                                _firstnameTextController.text,
-                                _lastnameTextController.text,
-                                phoneNumber,
-                                _carptTextController.text,
-                                passengerNumber,
-                                _governorateTextController.text,
-                                _districtTextController.text,
-                                _carModelTextController.text,
-                                _carColorTextController.text,
-                                _carMakerTextController.text,
-                                _carTypeTextController.text,
-                                _genderTextController.text,
-                                GeoPoint(latitude, longitude),
-                                carYear,
-                                _DCTextController.text,
-                              );
+              // Validate car year input
+              if (_carYearTextController.text.isEmpty) {
+                throw FormatException("Car year cannot be empty");
+              }
+              int carYear = int.parse(_carYearTextController.text);
 
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => const DEmailverify()),
-                              );
-                            } else {
-                              await firestoreService.addCustomer(
-                                userCredential.user!.uid, // Add UID
-                                _emailTextController.text,
-                                _firstnameTextController.text,
-                                _lastnameTextController.text,
-                                phoneNumber,
-                                _governorateTextController.text,
-                                _districtTextController.text,
-                                _genderTextController.text,
-                                GeoPoint(latitude, longitude),
-                                _DCTextController.text,
-                              );
+              await firestoreService.addDriver(
+                userCredential.user!.uid, // Add UID
+                _emailTextController.text,
+                _firstnameTextController.text,
+                _lastnameTextController.text,
+                int.parse(phoneNumber),
+                _carptTextController.text,
+                passengerNumber,
+                _governorateTextController.text,
+                _districtTextController.text,
+                _carModelTextController.text,
+                _carColorTextController.text,
+                _carMakerTextController.text,
+                _carTypeTextController.text,
+                _genderTextController.text,
+                location!,
+                carYear,
+                _DCTextController.text,
+              );
 
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => const CEmailverify()),
-                              );
-                            }
-                          }
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error creating account: $e')),
-                          );
-                        }
-                      }
-                    },
-                  ),
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const DEmailverify()),
+              );
+            } else {
+              await firestoreService.addCustomer(
+                userCredential.user!.uid, // Add UID
+                _emailTextController.text,
+                _firstnameTextController.text,
+                _lastnameTextController.text,
+                int.parse(phoneNumber),
+                _governorateTextController.text,
+                _districtTextController.text,
+                _genderTextController.text,
+                location!,
+                _DCTextController.text,
+              );
+
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const CEmailverify()),
+              );
+            }
+          }
+        } on FirebaseAuthException catch (e) {
+          Navigator.pop(context); // Remove loading indicator
+          String message;
+          switch (e.code) {
+            case 'email-already-in-use':
+              message = 'This email address is already registered. Please use a different email or try logging in.';
+              break;
+            case 'weak-password':
+              message = 'The password provided is too weak. Please use a stronger password.';
+              break;
+            case 'invalid-email':
+              message = 'The email address is not valid. Please check and try again.';
+              break;
+            default:
+              message = e.message ?? 'An unknown error occurred';
+          }
+          _showErrorDialog(context, 'Registration Error', message);
+        } on FormatException catch (e) {
+          Navigator.pop(context); // Remove loading indicator
+          _showErrorDialog(context, 'Input Error', e.message);
+        } catch (e) {
+          Navigator.pop(context); // Remove loading indicator
+          _showErrorDialog(
+            context, 
+            'Unexpected Error',
+            'An unexpected error occurred. Please try again later.'
+          );
+          print('Error during registration: $e'); // For debugging
+        }
+      }
+    },
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color.fromARGB(255, 3, 76, 83),
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      elevation: 2,
+    ),
+    child: const Text(
+      'Sign Up',
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
+const SizedBox(height: 20), // Add spacing at the bottom
                 ],
               ),
             ),
@@ -954,30 +1030,21 @@ GeoPoint _validateAndParseLocation(String input) {
   return GeoPoint(latitude, longitude);
 }
 
-// Helper function to handle Firebase errors
-void _handleFirebaseError(dynamic error, BuildContext context) {
-  if (error is FirebaseAuthException) {
-    if (error.code == 'email-already-in-use') {
-      print("The email address is already in use by another account.");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("The email address is already in use by another account."),
-        ),
-      );
-    } else {
-      print("Error: ${error.message}");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error: ${error.message}"),
-        ),
-      );
-    }
-  } else {
-    print("Error: ${error.toString()}");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Error: ${error.toString()}"),
-      ),
-    );
+// Add this validation function at the bottom of the file
+String? validateIraqiPhoneNumber(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Please enter phone number';
   }
+
+  // Remove any whitespace or special characters
+  String cleanNumber = value.replaceAll(RegExp(r'[\s\-()]'), '');
+
+  // Check if the number starts with 07 and has 11 digits
+  RegExp iraqiPhoneRegex = RegExp(r'^07[3-9][0-9]{8}$');
+  
+  if (!iraqiPhoneRegex.hasMatch(cleanNumber)) {
+    return 'Please enter a valid Iraqi phone number\n(e.g., 07XXXXXXXXX)';
+  }
+
+  return null;
 }

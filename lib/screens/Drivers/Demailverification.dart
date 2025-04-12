@@ -73,7 +73,7 @@ class _DEmailverifyState extends State<DEmailverify> {
             const Icon(
               Icons.mark_email_unread_outlined,
               size: 100,
-              color: Colors.blue,
+              color:Color.fromARGB(255, 3, 76, 83),
             ),
             const SizedBox(height: 30),
             const Text(
@@ -87,13 +87,14 @@ class _DEmailverifyState extends State<DEmailverify> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                color:Color.fromARGB(255, 3, 76, 83),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 'We have sent a verification link to ${FirebaseAuth.instance.currentUser?.email}',
+                
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: 16,color: Colors.white),
               ),
             ),
             const SizedBox(height: 24),
@@ -107,7 +108,12 @@ class _DEmailverifyState extends State<DEmailverify> {
                 'Cancel',
                 style: TextStyle(fontSize: 16),
               ),
-              onPressed: () => FirebaseAuth.instance.signOut(),
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (mounted) {
+                  Navigator.of(context).pop(); // Return to previous screen
+                }
+              },
             ),
             const SizedBox(height: 24),
             CircularProgressIndicator(),
@@ -148,7 +154,7 @@ class _DEmailverifyState extends State<DEmailverify> {
           onPressed: canResendEmail ? verifyEmail : null,
           style: ElevatedButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
-            backgroundColor: canResendEmail ? Colors.blue : Colors.grey,
+            backgroundColor: canResendEmail ? Color.fromARGB(255, 3, 76, 83) : Colors.grey,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
@@ -170,7 +176,7 @@ class _DEmailverifyState extends State<DEmailverify> {
             child: LinearProgressIndicator(
               value: timeLeft / 60,
               backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              valueColor: AlwaysStoppedAnimation<Color>(Color.fromARGB(255, 3, 76, 83)),
             ),
           ),
       ],
