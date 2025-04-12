@@ -31,6 +31,7 @@ class Package {
 class _NewDeliveryState extends State<NewDelivery> {
   final FirestoreService _firestoreService = FirestoreService();
   bool _isLoading = false;
+  bool _showValidationErrors = false;
 
   final mapController = MapController();
   DateTime? deliveryDate;
@@ -192,93 +193,122 @@ class _NewDeliveryState extends State<NewDelivery> {
   }
 
   Future<void> _saveDelivery() async {
-  // Add validation for location details
-  if (_pickupCityController.text.isEmpty || _pickupRegionController.text.isEmpty ||
-      _dropoffCityController.text.isEmpty || _dropoffRegionController.text.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please select pickup and drop-off locations')),
-    );
-    return;
-  }
-
-  if (deliveryDate == null || deliveryTime == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please select delivery date and time')),
-    );
-    return;
-  }
-
-  try {
-    setState(() => _isLoading = true);
-    
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    await FirebaseFirestore.instance.collection('deliveries').add({
-      'userId': user.uid,
-      'status': 'pending',
-      'createdAt': FieldValue.serverTimestamp(),
-      'deliveryDate': Timestamp.fromDate(deliveryDate!),
-      'deliveryTime': '${deliveryTime!.hour}:${deliveryTime!.minute}',
-      'package': {
-        'dimensions': {
-          'height': package.height,
-          'width': package.width,
-          'depth': package.depth,
-          'weight': package.weight,
-        },
-        'locations': {
-          'source': {
-            'coordinates': GeoPoint(
-              package.sourceLocation!.latitude,
-              package.sourceLocation!.longitude,
-            ),
-            'city': _pickupCityController.text,
-            'region': _pickupRegionController.text,
-          },
-          'destination': {
-            'coordinates': GeoPoint(
-              package.destinationLocation!.latitude,
-              package.destinationLocation!.longitude,
-            ),
-            'city': _dropoffCityController.text,
-            'region': _dropoffRegionController.text,
-          }
-        },
-      },
-      'routeDetails': {
-        'pickupCity': _pickupCityController.text,
-        'pickupRegion': _pickupRegionController.text,
-        'dropoffCity': _dropoffCityController.text,
-        'dropoffRegion': _dropoffRegionController.text,
-      },
+    setState(() {
+      _showValidationErrors = true; // Show validation errors on submit attempt
     });
 
-    if (!mounted) return;
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Delivery request submitted successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    // Validate package dimensions
+    if (package.height == null || 
+        package.width == null || 
+        package.depth == null || 
+        package.weight == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter all package dimensions and weight'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-    Navigator.pop(context);
+    // Validate locations
+    if (_pickupCityController.text.isEmpty || 
+        _pickupRegionController.text.isEmpty ||
+        _dropoffCityController.text.isEmpty || 
+        _dropoffRegionController.text.isEmpty ||
+        package.sourceLocation == null ||
+        package.destinationLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select all pickup and drop-off locations'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  } finally {
-    if (mounted) {
-      setState(() => _isLoading = false);
+    // Validate date and time
+    if (deliveryDate == null || deliveryTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select delivery date and time'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      setState(() => _isLoading = true);
+      
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      await FirebaseFirestore.instance.collection('deliveries').add({
+        'userId': user.uid,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+        'deliveryDate': Timestamp.fromDate(deliveryDate!),
+        'deliveryTime': '${deliveryTime!.hour}:${deliveryTime!.minute}',
+        'package': {
+          'dimensions': {
+            'height': package.height,
+            'width': package.width,
+            'depth': package.depth,
+            'weight': package.weight,
+          },
+          'locations': {
+            'source': {
+              'coordinates': GeoPoint(
+                package.sourceLocation!.latitude,
+                package.sourceLocation!.longitude,
+              ),
+              'city': _pickupCityController.text,
+              'region': _pickupRegionController.text,
+            },
+            'destination': {
+              'coordinates': GeoPoint(
+                package.destinationLocation!.latitude,
+                package.destinationLocation!.longitude,
+              ),
+              'city': _dropoffCityController.text,
+              'region': _dropoffRegionController.text,
+            }
+          },
+        },
+        'routeDetails': {
+          'pickupCity': _pickupCityController.text,
+          'pickupRegion': _pickupRegionController.text,
+          'dropoffCity': _dropoffCityController.text,
+          'dropoffRegion': _dropoffRegionController.text,
+        },
+      });
+
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Delivery request submitted successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pop(context);
+
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
-}
 
   Widget _buildLocationButtons() {
     return Card(
@@ -324,6 +354,11 @@ class _NewDeliveryState extends State<NewDelivery> {
                 ),
                 filled: true,
                 fillColor: Colors.grey.shade50,
+                errorStyle: const TextStyle(color: Colors.red),
+                helperText: _showValidationErrors && _pickupCityController.text.isEmpty 
+                    ? 'Pickup governorate is required' 
+                    : null,
+                helperStyle: const TextStyle(color: Colors.red),
                 suffixIcon: PopupMenuButton<String>(
                   icon: const Icon(Icons.arrow_drop_down),
                   onSelected: (String value) {
@@ -364,6 +399,11 @@ class _NewDeliveryState extends State<NewDelivery> {
                 ),
                 filled: true,
                 fillColor: Colors.grey.shade50,
+                errorStyle: const TextStyle(color: Colors.red),
+                helperText: _showValidationErrors && _pickupRegionController.text.isEmpty 
+                    ? 'Pickup district is required' 
+                    : null,
+                helperStyle: const TextStyle(color: Colors.red),
                 suffixIcon: selectedPickupCity == null 
                     ? null 
                     : PopupMenuButton<String>(
@@ -411,6 +451,11 @@ class _NewDeliveryState extends State<NewDelivery> {
                 ),
                 filled: true,
                 fillColor: Colors.grey.shade50,
+                errorStyle: const TextStyle(color: Colors.red),
+                helperText: _showValidationErrors && _dropoffCityController.text.isEmpty 
+                    ? 'Drop-off governorate is required' 
+                    : null,
+                helperStyle: const TextStyle(color: Colors.red),
                 suffixIcon: PopupMenuButton<String>(
                   icon: const Icon(Icons.arrow_drop_down),
                   onSelected: (String value) {
@@ -451,6 +496,11 @@ class _NewDeliveryState extends State<NewDelivery> {
                 ),
                 filled: true,
                 fillColor: Colors.grey.shade50,
+                errorStyle: const TextStyle(color: Colors.red),
+                helperText: _showValidationErrors && _dropoffRegionController.text.isEmpty 
+                    ? 'Drop-off district is required' 
+                    : null,
+                helperStyle: const TextStyle(color: Colors.red),
                 suffixIcon: selectedDropoffCity == null 
                     ? null 
                     : PopupMenuButton<String>(
@@ -593,65 +643,112 @@ class _NewDeliveryState extends State<NewDelivery> {
                 // Date and Time Selection Cards
                 Card(
                   elevation: 2,
-                  child: ListTile(
-                    leading: const Icon(Icons.calendar_today,color:Color.fromARGB(255, 3, 76, 83),),
-                    title: Text(
-                      deliveryDate == null 
-                          ? 'Select Delivery Date' 
-                          : '${deliveryDate!.day}/${deliveryDate!.month}/${deliveryDate!.year}'
-                    ),
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 30)),
-                      );
-                      if (date != null) {
-                        setState(() => deliveryDate = date);
-                      }
-                    },
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Icon(
+                          Icons.calendar_today,
+                          color: deliveryDate != null ? Color.fromARGB(255, 3, 76, 83) : Colors.grey
+                        ),
+                        title: Text(
+                          deliveryDate == null 
+                              ? 'Select Delivery Date' 
+                              : '${deliveryDate!.day}/${deliveryDate!.month}/${deliveryDate!.year}'
+                        ),
+                        trailing: _showValidationErrors 
+                            ? Icon(
+                                deliveryDate != null 
+                                    ? Icons.check_circle 
+                                    : Icons.error_outline,
+                                color: deliveryDate != null 
+                                    ? Colors.green 
+                                    : Colors.red,
+                                size: 20,
+                              )
+                            : null,
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 30)),
+                          );
+                          if (date != null) {
+                            setState(() => deliveryDate = date);
+                            _calculateEstimatedPrice();
+                          }
+                        },
+                        subtitle: _showValidationErrors && deliveryDate == null
+                            ? Text(
+                                'Delivery date is required',
+                                style: TextStyle(color: Colors.red, fontSize: 12),
+                            )
+                            : null,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
                 Card(
                   elevation: 2,
-                  child: ListTile(
-                    leading: const Icon(Icons.access_time, color:Color.fromARGB(255, 3, 76, 83)),
-                    title: Text(
-                      deliveryTime == null 
-                          ? 'Select Delivery Time' 
-                          : deliveryTime!.format(context)
-                    ),
-                    onTap: () async {
-                      final time = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.now(),
-                        builder: (BuildContext context, Widget? child) {
-                          return MediaQuery(
-                            data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
-                            child: child!,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Icon(
+                          Icons.access_time,
+                          color: deliveryTime != null ? Color.fromARGB(255, 3, 76, 83) : Colors.grey
+                        ),
+                        title: Text(
+                          deliveryTime == null 
+                              ? 'Select Delivery Time' 
+                              : deliveryTime!.format(context)
+                        ),
+                        trailing: _showValidationErrors
+                            ? Icon(
+                                deliveryTime != null 
+                                    ? Icons.check_circle 
+                                    : Icons.error_outline,
+                                color: deliveryTime != null 
+                                    ? Colors.green 
+                                    : Colors.red,
+                                size: 20,
+                              )
+                            : null,
+                        onTap: () async {
+                          final time = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.now(),
                           );
+                          if (time != null) {
+                            if (time.hour < 6 || time.hour >= 22) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please select a time between 6:00 AM and 10:00 PM'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                            setState(() => deliveryTime = time);
+                            _calculateEstimatedPrice();
+                          }
                         },
-                      );
-                      
-                      if (time != null) {
-                        // Check if time is within business hours
-                        if (time.hour < 8 || time.hour >= 20) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please select a time between 8:00 AM and 8:00 PM'),
-                              backgroundColor: Colors.red,
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_showValidationErrors && deliveryTime == null)
+                              Text(
+                                'Delivery time is required',
+                                style: TextStyle(color: Colors.red, fontSize: 12),
+                              ),
+                            Text(
+                              'Business hours: 6:00 AM - 10:00 PM',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 12),
                             ),
-                          );
-                          return;
-                        }
-                        
-                        setState(() => deliveryTime = time);
-                      }
-                    },
-                    subtitle: const Text('Business hours: 8:00 AM - 8:00 PM'),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -831,6 +928,11 @@ class _NewDeliveryState extends State<NewDelivery> {
                     decoration: InputDecoration(
                       labelText: 'Height',
                       suffixText: 'cm',
+                      errorStyle: const TextStyle(color: Colors.red),
+                      helperText: _showValidationErrors && package.height == null 
+                          ? 'Height is required' 
+                          : null,
+                      helperStyle: const TextStyle(color: Colors.red),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -851,6 +953,11 @@ class _NewDeliveryState extends State<NewDelivery> {
                     decoration: InputDecoration(
                       labelText: 'Width',
                       suffixText: 'cm',
+                      errorStyle: const TextStyle(color: Colors.red),
+                      helperText: _showValidationErrors && package.width == null 
+                          ? 'Width is required' 
+                          : null,
+                      helperStyle: const TextStyle(color: Colors.red),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -875,6 +982,11 @@ class _NewDeliveryState extends State<NewDelivery> {
                     decoration: InputDecoration(
                       labelText: 'Depth',
                       suffixText: 'cm',
+                      errorStyle: const TextStyle(color: Colors.red),
+                      helperText: _showValidationErrors && package.depth == null 
+                          ? 'Depth is required' 
+                          : null,
+                      helperStyle: const TextStyle(color: Colors.red),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -895,6 +1007,11 @@ class _NewDeliveryState extends State<NewDelivery> {
                     decoration: InputDecoration(
                       labelText: 'Weight',
                       suffixText: 'kg',
+                      errorStyle: const TextStyle(color: Colors.red),
+                      helperText: _showValidationErrors && package.weight == null 
+                          ? 'Weight is required' 
+                          : null,
+                      helperStyle: const TextStyle(color: Colors.red),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -923,27 +1040,73 @@ class _NewDeliveryState extends State<NewDelivery> {
         package.height == null ||
         package.width == null ||
         package.depth == null) {
+      setState(() => estimatedPrice = null);
       return;
     }
 
-    // Base price
-    double basePrice = 5000.0; // Base price in IQD
+    // Base price (starting cost)
+    double basePrice = 3000.0; // Base price in IQD
 
-    // Calculate distance factor
+    // Distance pricing
+    double distancePrice = 0.0;
     if (selectedPickupCity != selectedDropoffCity) {
+      // Get distance between cities from the cityDistances map
+      double? distance = cityDistances[selectedPickupCity]?[selectedDropoffCity];
+      if (distance != null) {
+        // Price per kilometer (50 IQD per km)
+        distancePrice = distance * 50.0;
+      }
     }
 
-    // Calculate volume pricing (1000 IQD per 100 cubic cm)
+    // Volume calculation (in cubic centimeters)
     double volume = package.height! * package.width! * package.depth!;
-    double volumePricing = (volume / 200).ceil() * 500.0;
+    
+    // Volume pricing tiers (price per 1000 cubic cm)
+    double volumePrice;
+    if (volume <= 1000) {
+      volumePrice = 1000.0;
+    } else if (volume <= 5000) {
+      volumePrice = 2000.0;
+    } else if (volume <= 10000) {
+      volumePrice = 3000.0;
+    } else {
+      volumePrice = 4000.0 + ((volume - 10000) / 1000).ceil() * 500.0;
+    }
 
-    // Calculate weight pricing (2000 IQD per 500g)
-    double weightInGrams = package.weight! * 1000; // Convert kg to grams
-    double weightPricing = (weightInGrams / 500).ceil() * 1500.0;
+    // Weight pricing tiers (in kg)
+    double weightPrice;
+    if (package.weight! <= 1) {
+      weightPrice = 1000.0;
+    } else if (package.weight! <= 3) {
+      weightPrice = 2000.0;
+    } else if (package.weight! <= 5) {
+      weightPrice = 3000.0;
+    } else if (package.weight! <= 10) {
+      weightPrice = 5000.0;
+    } else {
+      weightPrice = 5000.0 + ((package.weight! - 10) * 1000.0);
+    }
+
+    // Special handling fee for large or heavy items
+    double specialHandlingFee = 0.0;
+    if (package.weight! > 20 || volume > 50000) {
+      specialHandlingFee = 5000.0;
+    }
+
+    // Same-day delivery premium (if delivery is scheduled for today)
+    double urgencyFee = 0.0;
+    if (deliveryDate?.day == DateTime.now().day) {
+      urgencyFee = 2000.0;
+    }
 
     // Calculate total price
+    double totalPrice = basePrice + distancePrice + volumePrice + weightPrice + specialHandlingFee + urgencyFee;
+
+    // Round up to nearest 500 IQD
+    totalPrice = (totalPrice / 500).ceil() * 500;
+
     setState(() {
-      estimatedPrice = basePrice + volumePricing + weightPricing;
+      estimatedPrice = totalPrice;
     });
   }
 
@@ -958,7 +1121,7 @@ class _NewDeliveryState extends State<NewDelivery> {
           children: [
             Row(
               children: [
-                Icon(Icons.attach_money, color: Colors.green[700]),
+                Icon(Icons.attach_money, color: Color.fromARGB(255, 3, 76, 83)),
                 const SizedBox(width: 8),
                 const Text(
                   'Estimated Price',
@@ -973,14 +1136,29 @@ class _NewDeliveryState extends State<NewDelivery> {
                     ? 'Please fill in all details to see the estimated price'
                     : '${NumberFormat("#,##0").format(estimatedPrice)} IQD',
                 style: TextStyle(
-                  fontSize: estimatedPrice == null ? 14 : 24,
+                  fontSize: estimatedPrice == null ? 14 : 28,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green[700],
+                  color: Color.fromARGB(255, 3, 76, 83),
                 ),
               ),
             ),
             if (estimatedPrice != null) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Price Breakdown:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 8),
+              Text('• Base delivery fee: 3,000 IQD'),
+              if (selectedPickupCity != selectedDropoffCity)
+                Text('• Distance fee: Based on ${cityDistances[selectedPickupCity]?[selectedDropoffCity]} km'),
+              Text('• Volume and weight handling'),
+              if (deliveryDate?.day == DateTime.now().day)
+                Text('• Same-day delivery fee: 2,000 IQD'),
+              const SizedBox(height: 12),
               const Text(
                 'Note: Final price may vary based on actual weight and dimensions',
                 style: TextStyle(

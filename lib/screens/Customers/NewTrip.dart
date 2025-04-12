@@ -111,11 +111,18 @@ class _NewtripState extends State<Newtrip> {
     },
   };
 
-  double estimatedPrice = 0.0;
+  double? estimatedPrice;
+  int? passengerCount;
+
+  final _formKey = GlobalKey<FormState>();
+
+  // Add this variable to track if form was submitted
+  bool _showValidationErrors = false;
 
   @override
   void initState() {
     super.initState();
+    _showValidationErrors = false;
     mapControllers.add(MapController());
   }
 
@@ -377,7 +384,7 @@ class _NewtripState extends State<Newtrip> {
                         ageControllers[index].dispose();
                         ageControllers.removeAt(index);
                       });
-                      _calculateEstimatedPrice(); // Call after setState
+                      _calculateEstimatedTripPrice(); // Call after setState
                     },
                   ),
               ],
@@ -421,6 +428,7 @@ class _NewtripState extends State<Newtrip> {
                 });
               },
               validator: (value) {
+                if (!_showValidationErrors) return null;
                 if (value == null || value.isEmpty) {
                   return 'Please select gender';
                 }
@@ -432,11 +440,29 @@ class _NewtripState extends State<Newtrip> {
             TextFormField(
               controller: ageControllers[index],
               decoration: InputDecoration(
-                labelText: 'Age',
+                labelText: 'Age', // Added asterisk to indicate required field
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                errorStyle: const TextStyle(color: Colors.red),
               ),
               keyboardType: TextInputType.number,
-              onChanged: (value) => passengers[index].age = int.tryParse(value),
+              onChanged: (value) {
+                final age = int.tryParse(value);
+                setState(() {
+                  passengers[index].age = age;
+                });
+              },
+              validator: (value) {
+                if (!_showValidationErrors) return null;
+                if (value == null || value.isEmpty) {
+                  return 'Age is required';
+                }
+                final age = int.tryParse(value);
+                if (age == null) {
+                  return 'Please enter a valid number';
+                }
+                
+                return null;
+              },
             ),
             const SizedBox(height: 20),
             // Location Buttons
@@ -502,6 +528,56 @@ class _NewtripState extends State<Newtrip> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+            if (_showValidationErrors) ...[  // Only show when validation is triggered
+              Row(
+                children: [
+                  Icon(
+                    passengers[index].sourceLocation != null 
+                        ? Icons.check_circle 
+                        : Icons.error,
+                    color: passengers[index].sourceLocation != null 
+                        ? Colors.green 
+                        : Colors.red,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Pickup location ${passengers[index].sourceLocation != null ? 'selected' : 'required'}',
+                    style: TextStyle(
+                      color: passengers[index].sourceLocation != null 
+                          ? Colors.green 
+                          : Colors.red,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    passengers[index].destinationLocation != null 
+                        ? Icons.check_circle 
+                        : Icons.error,
+                    color: passengers[index].destinationLocation != null 
+                        ? Colors.green 
+                        : Colors.red,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Drop-off location ${passengers[index].destinationLocation != null ? 'selected' : 'required'}',
+                    style: TextStyle(
+                      color: passengers[index].destinationLocation != null 
+                          ? Colors.green 
+                          : Colors.red,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
           ],
         ),
@@ -531,11 +607,54 @@ class _NewtripState extends State<Newtrip> {
   }
 
   Future<void> _saveTrip() async {
+    setState(() {
+        _showValidationErrors = true; // Show validation errors on submit attempt
+    });
+
+    if (_formKey.currentState?.validate() != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Please fill in all required fields'),
+                backgroundColor: Colors.red,
+            ),
+        );
+        return;
+    }
+
+    // Check if all passengers have map locations selected
+    bool allLocationsSelected = passengers.every((passenger) => 
+        passenger.sourceLocation != null && 
+        passenger.destinationLocation != null
+    );
+
+    if (!allLocationsSelected) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Please select pickup and drop-off points on the map for all passengers'),
+                backgroundColor: Colors.red,
+            ),
+        );
+        return;
+    }
+
+    if (_pickupCityController.text.isEmpty || 
+        _pickupRegionController.text.isEmpty ||
+        _dropoffCityController.text.isEmpty ||
+        _dropoffRegionController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select both pickup and drop-off locations')),
+        );
+        return;
+    }
+
     if (tripDate == null || tripTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select trip date and time')),
-      );
-      return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Please select both date and time'),
+                backgroundColor: Colors.red,
+            ),
+        );
+        return;
     }
 
     try {
@@ -589,6 +708,13 @@ class _NewtripState extends State<Newtrip> {
     }
   }
 
+  void _resetForm() {
+    setState(() {
+        _showValidationErrors = false;
+        // Reset other form fields as needed
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -598,37 +724,156 @@ class _NewtripState extends State<Newtrip> {
             backgroundColor: const Color.fromARGB(255, 3, 76, 83),
             
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Add Notice Card
-            Card(
-              color: Colors.blue[50],
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Add Notice Card
+              Card(
+                color: Colors.blue[50],
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Color.fromARGB(255, 3, 76, 83)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Important Notice',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color.fromARGB(255, 3, 76, 83),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Please ensure all passenger details are accurate. Once submitted, trip details cannot be modified.',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Date and Time Selection Cards
+              Card(
+                elevation: 2,
+                child: Column(
                   children: [
-                    Icon(Icons.info_outline, color: Color.fromARGB(255, 3, 76, 83)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
+                    ListTile(
+                      leading: Icon(
+                        Icons.calendar_today, 
+                        color: tripDate != null ? Color.fromARGB(255, 3, 76, 83) : Colors.grey
+                      ),
+                      title: Text(
+                        tripDate == null 
+                            ? 'Select Trip Date' 
+                            : '${tripDate!.day}/${tripDate!.month}/${tripDate!.year}'
+                      ),
+                      trailing: _showValidationErrors 
+                          ? Icon(
+                              tripDate != null 
+                                  ? Icons.check_circle 
+                                  : Icons.error_outline,
+                              color: tripDate != null 
+                                  ? Colors.green 
+                                  : Colors.red,
+                              size: 20,
+                            )
+                          : null,
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 30)),
+                        );
+                        if (date != null) {
+                          setState(() => tripDate = date);
+                          _calculateEstimatedTripPrice();
+                        }
+                      },
+                      subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Important Notice',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color.fromARGB(255, 3, 76, 83),
+                          if (_showValidationErrors && tripDate == null)
+                            Text(
+                              'Trip date is required',
+                              style: TextStyle(color: Colors.red, fontSize: 12),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Please ensure all passenger details are accurate. Once submitted, trip details cannot be modified.',
-                            style: TextStyle(fontSize: 14),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 2,
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Icon(
+                        Icons.access_time, 
+                        color: tripTime != null ? Color.fromARGB(255, 3, 76, 83) : Colors.grey
+                      ),
+                      title: Text(
+                        tripTime == null 
+                            ? 'Select Trip Time' 
+                            : tripTime!.format(context)
+                      ),
+                      trailing: _showValidationErrors
+                          ? Icon(
+                              tripTime != null 
+                                  ? Icons.check_circle 
+                                  : Icons.error_outline,
+                              color: tripTime != null 
+                                  ? Colors.green 
+                                  : Colors.red,
+                              size: 20,
+                            )
+                          : null,
+                      onTap: () async {
+                        final time = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay.now(),
+                        );
+                        if (time != null) {
+                          if (time.hour < 6 || time.hour >= 22) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please select a time between 6:00 AM and 10:00 PM'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                          setState(() => tripTime = time);
+                          _calculateEstimatedTripPrice();
+                        }
+                      },
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_showValidationErrors && tripTime == null)
+                            Text(
+                              'Trip time is required',
+                              style: TextStyle(color: Colors.red, fontSize: 12),
+                            ),
+                          Text(
+                            'Available hours: 6:00 AM - 10:00 PM',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
                           ),
                         ],
                       ),
@@ -636,131 +881,79 @@ class _NewtripState extends State<Newtrip> {
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            // Date and Time Selection Cards
-            Card(
-              elevation: 2,
-              child: ListTile(
-                leading: const Icon(Icons.calendar_today, color: Color.fromARGB(255, 3, 76, 83)),
-                title: Text(
-                  tripDate == null 
-                      ? 'Select Trip Date' 
-                      : '${tripDate!.day}/${tripDate!.month}/${tripDate!.year}'
-                ),
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 30)),
-                  );
-                  if (date != null) {
-                    setState(() => tripDate = date);
-                  }
-                },
+              Card(
+                color: Colors.orange[50],
+                elevation: 0,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+               
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              // Add the shared location card here
+              _buildSharedLocationCard(),
+              const SizedBox(height: 16),
+              _buildTripPriceEstimation(), // Updated widget
+              const SizedBox(height: 16),
+              // Existing Passenger List
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: passengers.length,
+                itemBuilder: (context, index) => _buildPassengerCard(index),
+              ),
+              const SizedBox(height: 8),
+            // Add Passenger Button
             Card(
-              elevation: 2,
-              child: ListTile(
-                leading: const Icon(Icons.access_time, color: Color.fromARGB(255, 3, 76, 83)),
-                title: Text(
-                  tripTime == null 
-                      ? 'Select Trip Time' 
-                      : tripTime!.format(context)
-                ),
-                onTap: () async {
-                  final time = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.now(),
-                  );
-                  if (time != null) {
-                    // Validate time between 6 AM and 10 PM
-                    if (time.hour < 6 || time.hour >= 22) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please select a time between 6:00 AM and 10:00 PM'),
-                          backgroundColor: Colors.red,
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    passengers.add(Passenger());
+                    ageControllers.add(TextEditingController());
+                  });
+                  _calculateEstimatedTripPrice(); // Call after setState
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.person_add, color: Color.fromARGB(255, 3, 76, 83), size: 24),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Add Passenger (${passengers.length})',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color:Color.fromARGB(255, 3, 76, 83),
                         ),
-                      );
-                      return;
-                    }
-                    setState(() => tripTime = time);
-                  }
-                },
-                subtitle: const Text('Available hours: 6:00 AM - 10:00 PM'),
-              ),
-            ),
-            // Add Time Notice Card
-            
-            const SizedBox(height: 16),
-            // Add the shared location card here
-            _buildSharedLocationCard(),
-            const SizedBox(height: 16),
-            _buildEstimatedPriceCard(), // Add this line
-            const SizedBox(height: 16),
-            // Existing Passenger List
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: passengers.length,
-              itemBuilder: (context, index) => _buildPassengerCard(index),
-            ),
-            const SizedBox(height: 8),
-          // Add Passenger Button
-          Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  passengers.add(Passenger());
-                  ageControllers.add(TextEditingController());
-                });
-                _calculateEstimatedPrice(); // Call after setState
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.person_add, color: Color.fromARGB(255, 3, 76, 83), size: 24),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Add Passenger (${passengers.length})',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color:Color.fromARGB(255, 3, 76, 83),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-      
-            const SizedBox(height: 10),
-            Container(
-              width: 325,
-              child: ElevatedButton.icon(
-                onPressed: _saveTrip,
-                icon: const Icon(Icons.check_circle_outline,color: Colors.white,),
-                label: const Text('Confirm Trip',style: TextStyle(color: Colors.white),),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  backgroundColor: Color.fromARGB(255, 3, 76, 83),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    ],
                   ),
                 ),
               ),
             ),
-                ],
+        
+              const SizedBox(height: 10),
+              Container(
+                width: 325,
+                child: ElevatedButton.icon(
+                  onPressed: _saveTrip,
+                  icon: const Icon(Icons.check_circle_outline,color: Colors.white,),
+                  label: const Text('Confirm Trip',style: TextStyle(color: Colors.white),),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    backgroundColor: Color.fromARGB(255, 3, 76, 83),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+                  ],
+          ),
         ),
       ),
     );
@@ -838,7 +1031,7 @@ class _NewtripState extends State<Newtrip> {
                       _pickupCityController.text = value;
                       _pickupRegionController.clear();
                     });
-                    _calculateEstimatedPrice(); // Call after setState
+                    _calculateEstimatedTripPrice(); // Call after setState
                   },
                   itemBuilder: (context) => kurdistanCities.keys
                       .map((governorate) => PopupMenuItem<String>(
@@ -925,34 +1118,55 @@ class _NewtripState extends State<Newtrip> {
                   controller: _pickupCityController,
                   decoration: InputDecoration(
                     labelText: 'Pickup Governorate',
-                    hintText: 'Select Pickup District',
+                    hintText: 'Select Pickup Governorate',
+                    errorStyle: const TextStyle(color: Colors.red),
                     prefixIcon: const Icon(Icons.location_city),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                     filled: true,
                     fillColor: Colors.grey.shade50,
-                    suffixIcon: PopupMenuButton<String>(
-                      icon: const Icon(Icons.arrow_drop_down),
-                      onSelected: (String value) {
-                        setState(() {
-                          selectedPickupCity = value;
-                          selectedPickupRegion = null;
-                          _pickupCityController.text = value;
-                          _pickupRegionController.clear();
-                        });
-                        _calculateEstimatedPrice(); // Call after setState
-                      },
-                      itemBuilder: (context) => kurdistanCities.keys
-                          .map((governorate) => PopupMenuItem<String>(
-                                value: governorate,
-                                child: Text(governorate),
-                              ))
-                          .toList(),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_showValidationErrors)
+                          Icon(
+                            _pickupCityController.text.isNotEmpty 
+                                ? Icons.check_circle 
+                                : Icons.error_outline,
+                            color: _pickupCityController.text.isNotEmpty 
+                                ? Colors.green 
+                                : Colors.red,
+                            size: 20,
+                          ),
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.arrow_drop_down),
+                          onSelected: (String value) {
+                            setState(() {
+                              selectedPickupCity = value;
+                              selectedPickupRegion = null;
+                              _pickupCityController.text = value;
+                              _pickupRegionController.clear();
+                            });
+                            _calculateEstimatedTripPrice(); // Call after setState
+                          },
+                          itemBuilder: (context) => kurdistanCities.keys
+                              .map((governorate) => PopupMenuItem<String>(
+                                    value: governorate,
+                                    child: Text(governorate),
+                                  ))
+                              .toList(),
+                        ),
+                      ],
                     ),
                   ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Please select pickup governorate' : null,
+                  validator: (value) {
+                    if (!_showValidationErrors) return null;
+                    if (value == null || value.isEmpty) {
+                      return 'Pickup governorate is required';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 // Pickup Region Selection
@@ -964,15 +1178,28 @@ class _NewtripState extends State<Newtrip> {
                     hintText: selectedPickupCity == null 
                         ? 'Select a governorate first' 
                         : 'Select district in ${selectedPickupCity}',
+                    errorStyle: const TextStyle(color: Colors.red),
                     prefixIcon: const Icon(Icons.location_on),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                     filled: true,
                     fillColor: Colors.grey.shade50,
-                    suffixIcon: selectedPickupCity == null 
-                        ? null 
-                        : PopupMenuButton<String>(
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_showValidationErrors)
+                          Icon(
+                            _pickupRegionController.text.isNotEmpty 
+                                ? Icons.check_circle 
+                                : Icons.error_outline,
+                            color: _pickupRegionController.text.isNotEmpty 
+                                ? Colors.green 
+                                : Colors.red,
+                            size: 20,
+                          ),
+                        if (selectedPickupCity != null)
+                          PopupMenuButton<String>(
                             icon: const Icon(Icons.arrow_drop_down),
                             onSelected: (String value) {
                               setState(() {
@@ -987,9 +1214,16 @@ class _NewtripState extends State<Newtrip> {
                                     ))
                                 .toList(),
                           ),
+                      ],
+                    ),
                   ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Please select pickup district' : null,
+                  validator: (value) {
+                    if (!_showValidationErrors) return null;
+                    if (value == null || value.isEmpty) {
+                      return 'Pickup district is required';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -1007,33 +1241,54 @@ class _NewtripState extends State<Newtrip> {
                   decoration: InputDecoration(
                     labelText: 'Drop-off Governorate',
                     hintText: 'Select Drop-off Governorate',
+                    errorStyle: const TextStyle(color: Colors.red),
                     prefixIcon: const Icon(Icons.location_city),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                     filled: true,
                     fillColor: Colors.grey.shade50,
-                    suffixIcon: PopupMenuButton<String>(
-                      icon: const Icon(Icons.arrow_drop_down),
-                      onSelected: (String value) {
-                        setState(() {
-                          selectedDropoffCity = value;
-                          selectedDropoffRegion = null;
-                          _dropoffCityController.text = value;
-                          _dropoffRegionController.clear();
-                        });
-                        _calculateEstimatedPrice(); // Call after setState
-                      },
-                      itemBuilder: (context) => kurdistanCities.keys
-                          .map((governorate) => PopupMenuItem<String>(
-                                value: governorate,
-                                child: Text(governorate),
-                              ))
-                          .toList(),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_showValidationErrors)
+                          Icon(
+                            _dropoffCityController.text.isNotEmpty 
+                                ? Icons.check_circle 
+                                : Icons.error_outline,
+                            color: _dropoffCityController.text.isNotEmpty 
+                                ? Colors.green 
+                                : Colors.red,
+                            size: 20,
+                          ),
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.arrow_drop_down),
+                          onSelected: (String value) {
+                            setState(() {
+                              selectedDropoffCity = value;
+                              selectedDropoffRegion = null;
+                              _dropoffCityController.text = value;
+                              _dropoffRegionController.clear();
+                            });
+                            _calculateEstimatedTripPrice(); // Call after setState
+                          },
+                          itemBuilder: (context) => kurdistanCities.keys
+                              .map((governorate) => PopupMenuItem<String>(
+                                    value: governorate,
+                                    child: Text(governorate),
+                                  ))
+                              .toList(),
+                        ),
+                      ],
                     ),
                   ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Please select drop-off governorate' : null,
+                  validator: (value) {
+                    if (!_showValidationErrors) return null;
+                    if (value == null || value.isEmpty) {
+                      return 'Drop-off governorate is required';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 // Drop-off Region Selection
@@ -1041,19 +1296,32 @@ class _NewtripState extends State<Newtrip> {
                   controller: _dropoffRegionController,
                   enabled: selectedDropoffCity != null,
                   decoration: InputDecoration(
-                    labelText: 'Drop-off Region',
+                    labelText: 'Drop-off District',
                     hintText: selectedDropoffCity == null 
                         ? 'Select a governorate first' 
                         : 'Select district in ${selectedDropoffCity}',
+                    errorStyle: const TextStyle(color: Colors.red),
                     prefixIcon: const Icon(Icons.location_on),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                     filled: true,
                     fillColor: Colors.grey.shade50,
-                    suffixIcon: selectedDropoffCity == null 
-                        ? null 
-                        : PopupMenuButton<String>(
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_showValidationErrors)
+                          Icon(
+                            _dropoffRegionController.text.isNotEmpty 
+                                ? Icons.check_circle 
+                                : Icons.error_outline,
+                            color: _dropoffRegionController.text.isNotEmpty 
+                                ? Colors.green 
+                                : Colors.red,
+                            size: 20,
+                          ),
+                        if (selectedDropoffCity != null)
+                          PopupMenuButton<String>(
                             icon: const Icon(Icons.arrow_drop_down),
                             onSelected: (String value) {
                               setState(() {
@@ -1068,9 +1336,16 @@ class _NewtripState extends State<Newtrip> {
                                     ))
                                 .toList(),
                           ),
+                      ],
+                    ),
                   ),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? 'Please select drop-off district' : null,
+                  validator: (value) {
+                    if (!_showValidationErrors) return null;
+                    if (value == null || value.isEmpty) {
+                      return 'Drop-off district is required';
+                    }
+                    return null;
+                  },
                 ),
               ],
             ),
@@ -1078,88 +1353,135 @@ class _NewtripState extends State<Newtrip> {
     );
   }
 
-  void _calculateEstimatedPrice() {
+  void _calculateEstimatedTripPrice() {
     if (selectedPickupCity == null || selectedDropoffCity == null) {
-      setState(() {
-        estimatedPrice = 0.0;
-      });
-      return;
+        setState(() => estimatedPrice = null);
+        return;
     }
 
-    // Base price for the trip
-    double basePrice = 25000.0; // 25,000 IQD base price
+    // Base price (starting cost)
+    double basePrice = 5000.0; // Base price in IQD for trips
 
-    // Calculate distance factor
-    double distance = 0.0;
+    // Distance pricing
+    double distancePrice = 0.0;
     if (selectedPickupCity != selectedDropoffCity) {
-      distance = cityDistances[selectedPickupCity]?[selectedDropoffCity] ?? 0.0;
+        double? distance = cityDistances[selectedPickupCity]?[selectedDropoffCity];
+        if (distance != null) {
+            // Price per kilometer (100 IQD per km for passenger trips)
+            distancePrice = distance * 100.0;
+        }
     }
 
-    // Price per kilometer
-    double pricePerKm = 500.0; // 500 IQD per kilometer
+    // Calculate passenger-based pricing
+    double passengerPrice = 0.0;
+    int numberOfPassengers = passengers.length; // Use the actual number of passengers
     
-    // Additional passenger fee
-    double additionalPassengerFee = (passengers.length - 1) * 5000.0;
+    // Price increases with each passenger
+    if (numberOfPassengers == 1) {
+        passengerPrice = 4000.0;
+    } else if (numberOfPassengers == 2) {
+        passengerPrice = 8000.0;
+    } else if (numberOfPassengers == 3) {
+        passengerPrice = 12000.0;
+    } else if (numberOfPassengers == 4) {
+        passengerPrice = 16000.0;
+    } else {
+        // For more than 4 passengers, add 2500 IQD per additional passenger
+        passengerPrice = 8000.0 + ((numberOfPassengers - 4) * 4000.0);
+    }
+
+    // Time of day premium
+    double timePremium = 0.0;
+    if (tripTime != null) {
+        if (tripTime!.hour < 6 || tripTime!.hour >= 22) {
+            // Night time premium (per passenger)
+            timePremium = 3000.0 * numberOfPassengers;
+        } else if (tripTime!.hour >= 16 && tripTime!.hour < 19) {
+            // Rush hour premium (per passenger)
+            timePremium = 2000.0 * numberOfPassengers;
+        }
+    }
+
+    // Same-day booking premium (per passenger)
+    double urgencyFee = 0.0;
+    if (tripDate?.day == DateTime.now().day) {
+        urgencyFee = 2000.0 * numberOfPassengers;
+    }
 
     // Calculate total price
-    setState(() {
-      estimatedPrice = basePrice + (distance * pricePerKm) + additionalPassengerFee;
-    });
+    double totalPrice = basePrice + distancePrice + passengerPrice + timePremium + urgencyFee;
 
-    print('Price calculation:');
-    print('Base price: $basePrice');
-    print('Distance: $distance km');
-    print('Distance cost: ${distance * pricePerKm}');
-    print('Additional passengers cost: $additionalPassengerFee');
-    print('Total estimated price: $estimatedPrice');
+    // Round up to nearest 500 IQD
+    totalPrice = (totalPrice / 500).ceil() * 500;
+
+    setState(() {
+        estimatedPrice = totalPrice;
+    });
   }
 
-  // Add this widget method
-  Widget _buildEstimatedPriceCard() {
+  Widget _buildTripPriceEstimation() {
     return Card(
-      margin: const EdgeInsets.all(8),
-      elevation: 2,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-                Text(
-                  'Estimated Price:',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue[900],
-                  ),
+            Row(
+              children: [
+                Icon(Icons.attach_money, color: Color.fromARGB(255, 3, 76, 83)),
+                const SizedBox(width: 8),
+                const Text(
+                  'Estimated Trip Price',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  '${NumberFormat("#,##0").format(estimatedPrice)} IQD',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 3, 76, 83),
-                  ),
-                
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Price includes:',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[700],
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                estimatedPrice == null 
+                    ? 'Please fill in all details to see the estimated price'
+                    : '${NumberFormat("#,##0").format(estimatedPrice)} IQD',
+                style: TextStyle(
+                  fontSize: estimatedPrice == null ? 14 : 28,
+                  fontWeight: FontWeight.bold,
+                  color: Color.fromARGB(255, 3, 76, 83),
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '• Base fare: 25,000 IQD\n'
-              '• Distance fee: 500 IQD per kilometer\n'
-              '• Additional passenger fee: 5,000 IQD per person',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+            if (estimatedPrice != null) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Price Breakdown:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              Text('• Base trip fee: 5,000 IQD'),
+              if (selectedPickupCity != selectedDropoffCity)
+                Text('• Distance fee: Based on ${cityDistances[selectedPickupCity]?[selectedDropoffCity]} km'),
+              if (passengerCount != null)
+                Text('• Passenger fee (${passengerCount} passengers)'),
+              if (tripTime != null && (tripTime!.hour < 6 || tripTime!.hour >= 22))
+                Text('• Night time premium: 3,000 IQD'),
+              if (tripTime != null && (tripTime!.hour >= 16 && tripTime!.hour < 19))
+                Text('• Rush hour premium: 2,000 IQD'),
+              if (tripDate?.day == DateTime.now().day)
+                Text('• Same-day booking fee: 2,000 IQD'),
+              const SizedBox(height: 12),
+              const Text(
+                'Note: Final price may vary based on actual distance and conditions',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
           ],
         ),
       ),
