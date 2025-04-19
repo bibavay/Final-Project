@@ -229,7 +229,7 @@ class FirestoreService {
     required String sourceCity,
     required String destinationCity,
   }) async {
-    final dimensions = package['dimensions'] as Map<String, dynamic>;
+   // final dimensions = package['dimensions'] as Map<String, dynamic>;
     
     final docRef = await deliveries.add({
       'userId': userId,

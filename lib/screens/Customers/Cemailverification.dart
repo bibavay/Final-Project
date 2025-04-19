@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/Customers.dart';
+import 'package:transportaion_and_delivery/screens/Customers/Customers.dart';
 
 class CEmailverify extends StatefulWidget {
   const CEmailverify({Key? key}) : super(key: key);

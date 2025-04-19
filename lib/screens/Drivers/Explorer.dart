@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/Droute.dart';
 import 'package:intl/intl.dart';
+import 'package:transportaion_and_delivery/screens/Drivers/Droute.dart';
 
 class Explorer extends StatefulWidget {
   const Explorer({super.key});
@@ -16,7 +16,6 @@ class _ExplorerState extends State<Explorer> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   String _tripStatusFilter = 'all';
   String _deliveryStatusFilter = 'all';
-  
   final List<String> _statusFilters = ['all', 'pending', 'accepted', 'in_progress'];
 
   // Trip filter variables
@@ -26,6 +25,7 @@ class _ExplorerState extends State<Explorer> {
   String _tripDropoffDistrictFilter = 'all';
   int _minPassengersFilter = 0;
   bool _tripRestrictionsFilter = false;
+  DateTime? _tripDateFilter;
 
   // Delivery filter variables
   String _deliveryPickupGovernorateFilter = 'all';
@@ -36,11 +36,10 @@ class _ExplorerState extends State<Explorer> {
   double _maxWeightFilter = 0;
   double _minDimensionsFilter = 0;
   bool _deliveryRestrictionsFilter = false;
+  DateTime? _deliveryDateFilter;
 
   final Map<String, List<String>> kurdistanCities = {
     'Erbil': [
-      'Erbil City',
-      'Shaqlawa',
       'Soran',
       'Koya',
       'Mergasur', 
@@ -76,174 +75,123 @@ class _ExplorerState extends State<Explorer> {
   Stream<List<ActiveOrder>> _getActiveTrips() {
     Query baseQuery = _firestore.collection('trips');
     final driverId = _auth.currentUser?.uid;
-    
-    return baseQuery
-        .where('status', whereIn: ['pending', 'driver_pending', 'confirmed'])
-        .orderBy('tripDate', descending: true)
-        .snapshots()
-        .map((snapshot) {
-            List<ActiveOrder> allOrders = snapshot.docs
-                .map((doc) => ActiveOrder.fromFirestore(doc))
-                .where((order) {
-                  if (order.status == 'confirmed') {
-                    return order.details['driverId'] == driverId;
-                  }
-                  return order.status == 'pending' ||
-                         (order.status == 'driver_pending' &&
-                          order.details['pendingDriverId'] == driverId);
-                })
-                .toList();
-            
-            allOrders.sort((a, b) {
-              int getPriority(String status) {
-                switch (status) {
-                  case 'confirmed': return 2;
-                  case 'driver_pending': return 1;
-                  case 'pending': return 0;
-                  default: return -1;
-                }
-              }
-              int priorityA = getPriority(a.status);
-              int priorityB = getPriority(b.status);
-              if (priorityA != priorityB) {
-                return priorityB.compareTo(priorityA);
-              }
-              return b.dateTime.compareTo(a.dateTime);
-            });
 
-            // Apply pickup governorate filter on pickupCity if set
-            if (_tripPickupGovernorateFilter != 'all') {
-              allOrders = allOrders.where((order) {
-                bool pickupGovernorateMatch = (order.details['pickupCity'] ?? '').toString().toLowerCase() ==
-                       _tripPickupGovernorateFilter.toLowerCase();
-                if (_tripPickupDistrictFilter != 'all') {
-                  return pickupGovernorateMatch && 
-                         (order.details['pickupRegion'] ?? '').toString().toLowerCase() ==
-                         _tripPickupDistrictFilter.toLowerCase();
-                }
-                return pickupGovernorateMatch;
-              }).toList();
+    // Add base query conditions
+    baseQuery = baseQuery.where('status', whereIn: ['pending', 'driver_pending', 'confirmed']);
+
+    // Add location filters to the query
+    if (_tripPickupGovernorateFilter != 'all') {
+      baseQuery = baseQuery.where('routeDetails.pickupCity', isEqualTo: _tripPickupGovernorateFilter);
+      if (_tripPickupDistrictFilter != 'all') {
+        baseQuery = baseQuery.where('routeDetails.pickupRegion', isEqualTo: _tripPickupDistrictFilter);
+      }
+    }
+
+    if (_tripDropoffGovernorateFilter != 'all') {
+      baseQuery = baseQuery.where('routeDetails.dropoffCity', isEqualTo: _tripDropoffGovernorateFilter);
+      if (_tripDropoffDistrictFilter != 'all') {
+        baseQuery = baseQuery.where('routeDetails.dropoffRegion', isEqualTo: _tripDropoffDistrictFilter);
+      }
+    }
+
+    return baseQuery.snapshots().map((snapshot) {
+      List<ActiveOrder> allOrders = snapshot.docs
+          .map((doc) => ActiveOrder.fromFirestore(doc))
+          .where((order) {
+            if (order.status == 'confirmed') {
+              return order.details['driverId'] == driverId;
             }
-            // Apply dropoff governorate filter on dropoffCity if set
-            if (_tripDropoffGovernorateFilter != 'all') {
-              allOrders = allOrders.where((order) {
-                bool dropoffGovernorateMatch = (order.details['dropoffCity'] ?? '').toString().toLowerCase() ==
-                       _tripDropoffGovernorateFilter.toLowerCase();
-                if (_tripDropoffDistrictFilter != 'all') {
-                  return dropoffGovernorateMatch && 
-                         (order.details['dropoffRegion'] ?? '').toString().toLowerCase() ==
-                         _tripDropoffDistrictFilter.toLowerCase();
-                }
-                return dropoffGovernorateMatch;
-              }).toList();
-            }
-            // Apply restrictions filter if enabled
-            if (_tripRestrictionsFilter) {
-              allOrders = allOrders.where((order) {
-                return order.details['restrictions'] == true;
-              }).toList();
-            }
-            // Apply minimum passengers filter for Trip orders
-            if (_minPassengersFilter > 0) {
-              allOrders = allOrders.where((order) {
-                if (order.type == 'Trip' && order.details['passengers'] != null) {
-                  List passengers = order.details['passengers'] as List;
-                  return passengers.length >= _minPassengersFilter;
-                }
-                return true;
-              }).toList();
-            }
-            
-            return allOrders;
-        });
+            return order.status == 'pending' ||
+                   (order.status == 'driver_pending' &&
+                    order.details['pendingDriverId'] == driverId);
+          })
+          .toList();
+
+      // Apply remaining filters in memory
+      if (_minPassengersFilter > 0) {
+        allOrders = allOrders.where((order) {
+          if (order.details['passengers'] != null) {
+            List passengers = order.details['passengers'] as List;
+            return passengers.length >= _minPassengersFilter;
+          }
+          return false;
+        }).toList();
+      }
+
+      if (_tripRestrictionsFilter) {
+        allOrders = allOrders.where((order) => 
+          order.details['restrictions'] == true
+        ).toList();
+      }
+
+      if (_tripDateFilter != null) {
+        String filterDate = DateFormat('yyyy-MM-dd').format(_tripDateFilter!);
+        allOrders = allOrders.where((order) {
+          String orderDate = DateFormat('yyyy-MM-dd').format(order.dateTime);
+          return orderDate == filterDate;
+        }).toList();
+      }
+
+      return allOrders;
+    });
   }
 
   Stream<List<ActiveOrder>> _getActiveDeliveries() {
     Query baseQuery = _firestore.collection('deliveries');
     final driverId = _auth.currentUser?.uid;
-    
-    return baseQuery
-        .where('status', whereIn: ['pending', 'driver_pending', 'confirmed'])
-        .orderBy('deliveryDate', descending: true)
-        .snapshots()
-        .map((snapshot) {
-            List<ActiveOrder> allOrders = snapshot.docs
-                .map((doc) => ActiveOrder.fromFirestore(doc))
-                .where((order) {
-                  if (order.status == 'confirmed') {
-                    return order.details['driverId'] == driverId;
-                  }
-                  return order.status == 'pending' ||
-                         (order.status == 'driver_pending' &&
-                          order.details['pendingDriverId'] == driverId);
-                })
-                .toList();
-            
-            allOrders.sort((a, b) {
-              int getPriority(String status) {
-                switch (status) {
-                  case 'confirmed': return 2;
-                  case 'driver_pending': return 1;
-                  case 'pending': return 0;
-                  default: return -1;
-                }
-              }
-              int priorityA = getPriority(a.status);
-              int priorityB = getPriority(b.status);
-              if (priorityA != priorityB) {
-                return priorityB.compareTo(priorityA);
-              }
-              return b.dateTime.compareTo(a.dateTime);
-            });
 
-            // Apply pickup governorate filter on pickupRegion if set
-            if (_deliveryPickupGovernorateFilter != 'all') {
-              allOrders = allOrders.where((order) {
-                bool pickupGovernorateMatch = (order.details['pickupRegion'] ?? '').toString().toLowerCase() ==
-                       _deliveryPickupGovernorateFilter.toLowerCase();
-                if (_deliveryPickupDistrictFilter != 'all') {
-                  return pickupGovernorateMatch && 
-                         (order.details['pickupCity'] ?? '').toString().toLowerCase() ==
-                         _deliveryPickupDistrictFilter.toLowerCase();
-                }
-                return pickupGovernorateMatch;
-              }).toList();
+    // Add base query conditions
+    baseQuery = baseQuery.where('status', whereIn: ['pending', 'driver_pending', 'confirmed']);
+
+    // Add location filters to the query
+    if (_deliveryPickupGovernorateFilter != 'all') {
+      baseQuery = baseQuery.where('package.locations.source.city', 
+          isEqualTo: _deliveryPickupGovernorateFilter);
+    }
+
+    if (_deliveryDropoffGovernorateFilter != 'all') {
+      baseQuery = baseQuery.where('package.locations.destination.city', 
+          isEqualTo: _deliveryDropoffGovernorateFilter);
+    }
+
+    return baseQuery.snapshots().map((snapshot) {
+      List<ActiveOrder> allOrders = snapshot.docs
+          .map((doc) => ActiveOrder.fromFirestore(doc))
+          .where((order) {
+            if (order.status == 'confirmed') {
+              return order.details['driverId'] == driverId;
             }
-            // Apply dropoff governorate filter on dropoffRegion if set
-            if (_deliveryDropoffGovernorateFilter != 'all') {
-              allOrders = allOrders.where((order) {
-                bool dropoffGovernorateMatch = (order.details['dropoffRegion'] ?? '').toString().toLowerCase() ==
-                       _deliveryDropoffGovernorateFilter.toLowerCase();
-                if (_deliveryDropoffDistrictFilter != 'all') {
-                  return dropoffGovernorateMatch && 
-                         (order.details['dropoffCity'] ?? '').toString().toLowerCase() ==
-                         _deliveryDropoffDistrictFilter.toLowerCase();
-                }
-                return dropoffGovernorateMatch;
-              }).toList();
-            }
-            // Apply restrictions filter if enabled
-            if (_deliveryRestrictionsFilter) {
-              allOrders = allOrders.where((order) {
-                return order.details['restrictions'] == true;
-              }).toList();
-            }
-            // Apply weight and dimensions filters for Delivery orders
-            if (_minWeightFilter > 0 || _maxWeightFilter > 0 || _minDimensionsFilter > 0) {
-              allOrders = allOrders.where((order) {
-                if (order.type == 'Delivery' && order.details['package'] != null) {
-                  final package = order.details['package'] as Map<String, dynamic>;
-                  final weight = package['weight'] ?? 0.0;
-                  final dimensions = package['dimensions'] ?? 0.0;
-                  return (weight >= _minWeightFilter && weight <= _maxWeightFilter) &&
-                         dimensions >= _minDimensionsFilter;
-                }
-                return true;
-              }).toList();
-            }
-            
-            return allOrders;
-        });
+            return order.status == 'pending' ||
+                   (order.status == 'driver_pending' &&
+                    order.details['pendingDriverId'] == driverId);
+          })
+          .toList();
+
+      // Apply remaining filters in memory
+      if (_minWeightFilter > 0 || _maxWeightFilter > 0) {
+        allOrders = allOrders.where((order) {
+          final weight = order.details['package']?['dimensions']?['weight'] ?? 0;
+          return (_minWeightFilter <= 0 || weight >= _minWeightFilter) &&
+                 (_maxWeightFilter <= 0 || weight <= _maxWeightFilter);
+        }).toList();
+      }
+
+      if (_deliveryRestrictionsFilter) {
+        allOrders = allOrders.where((order) => 
+          order.details['restrictions'] == true
+        ).toList();
+      }
+
+      if (_deliveryDateFilter != null) {
+        String filterDate = DateFormat('yyyy-MM-dd').format(_deliveryDateFilter!);
+        allOrders = allOrders.where((order) {
+          String orderDate = DateFormat('yyyy-MM-dd').format(order.dateTime);
+          return orderDate == filterDate;
+        }).toList();
+      }
+
+      return allOrders;
+    });
   }
 
   @override
@@ -319,27 +267,18 @@ class _ExplorerState extends State<Explorer> {
   }
 
   Future<void> _showTripFilterDialog() async {
-    String selectedPickupGovernorate = _tripPickupGovernorateFilter;
-    String selectedPickupDistrict = _tripPickupDistrictFilter;
-    String selectedDropoffGovernorate = _tripDropoffGovernorateFilter;
-    String selectedDropoffDistrict = _tripDropoffDistrictFilter;
-    TextEditingController passengersController = TextEditingController(
-      text: _minPassengersFilter > 0 ? _minPassengersFilter.toString() : '',
-    );
-    bool restrictions = _tripRestrictionsFilter;
-
-    await showDialog(
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+        builder: (context, localSetState) => AlertDialog(
           title: const Text('Filter Trips'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Pickup Location', style: TextStyle(fontWeight: FontWeight.bold)),
+                // Pickup location filter: Governorate
                 DropdownButtonFormField<String>(
-                  value: selectedPickupGovernorate,
+                  value: _tripPickupGovernorateFilter,
                   decoration: const InputDecoration(
                     labelText: 'Pickup Governorate',
                   ),
@@ -350,38 +289,37 @@ class _ExplorerState extends State<Explorer> {
                     );
                   }).toList(),
                   onChanged: (value) {
-                    setState(() {
-                      selectedPickupGovernorate = value ?? 'all';
-                      selectedPickupDistrict = 'all';
+                    localSetState(() {
+                      _tripPickupGovernorateFilter = value ?? 'all';
+                      _tripPickupDistrictFilter = 'all';
                     });
                   },
                 ),
-                if (selectedPickupGovernorate != 'all') ...[
-                  const SizedBox(height: 16),
+                // Pickup location filter: District (only if valid governorate selected)
+                if (_tripPickupGovernorateFilter != 'all')
                   DropdownButtonFormField<String>(
-                    value: selectedPickupDistrict,
+                    value: _tripPickupDistrictFilter,
                     decoration: const InputDecoration(
                       labelText: 'Pickup District',
                     ),
-                    items: ['all', ...(kurdistanCities[selectedPickupGovernorate] ?? [])].map((district) {
+                    items: ['all', ...(kurdistanCities[_tripPickupGovernorateFilter] ?? [])]
+                        .map((district) {
                       return DropdownMenuItem<String>(
                         value: district,
-                        child: Text(district.toUpperCase()),
+                        child: Text(district),
                       );
                     }).toList(),
                     onChanged: (value) {
-                      setState(() {
-                        selectedPickupDistrict = value ?? 'all';
+                      localSetState(() {
+                        _tripPickupDistrictFilter = value ?? 'all';
                       });
                     },
                   ),
-                ],
-                const SizedBox(height: 24),
-                Text('Dropoff Location', style: TextStyle(fontWeight: FontWeight.bold)),
+                // Drop-off location filter: Governorate
                 DropdownButtonFormField<String>(
-                  value: selectedDropoffGovernorate,
+                  value: _tripDropoffGovernorateFilter,
                   decoration: const InputDecoration(
-                    labelText: 'Dropoff Governorate',
+                    labelText: 'Drop-off Governorate',
                   ),
                   items: ['all', ...kurdistanCities.keys].map((city) {
                     return DropdownMenuItem<String>(
@@ -390,46 +328,88 @@ class _ExplorerState extends State<Explorer> {
                     );
                   }).toList(),
                   onChanged: (value) {
-                    setState(() {
-                      selectedDropoffGovernorate = value ?? 'all';
-                      selectedDropoffDistrict = 'all';
+                    localSetState(() {
+                      _tripDropoffGovernorateFilter = value ?? 'all';
+                      _tripDropoffDistrictFilter = 'all';
                     });
                   },
                 ),
-                if (selectedDropoffGovernorate != 'all') ...[
-                  const SizedBox(height: 16),
+                // Drop-off District (only if a valid governorate is selected)
+                if (_tripDropoffGovernorateFilter != 'all')
                   DropdownButtonFormField<String>(
-                    value: selectedDropoffDistrict,
+                    value: _tripDropoffDistrictFilter,
                     decoration: const InputDecoration(
-                      labelText: 'Dropoff District',
+                      labelText: 'Drop-off District',
                     ),
-                    items: ['all', ...(kurdistanCities[selectedDropoffGovernorate] ?? [])].map((district) {
+                    items: ['all', ...(kurdistanCities[_tripDropoffGovernorateFilter] ?? [])]
+                        .map((district) {
                       return DropdownMenuItem<String>(
                         value: district,
-                        child: Text(district.toUpperCase()),
+                        child: Text(district),
                       );
                     }).toList(),
                     onChanged: (value) {
-                      setState(() {
-                        selectedDropoffDistrict = value ?? 'all';
+                      localSetState(() {
+                        _tripDropoffDistrictFilter = value ?? 'all';
                       });
                     },
                   ),
-                ],
-                const SizedBox(height: 16),
+                // Date filter
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Filter Date: ${_tripDateFilter != null ? DateFormat('MMM dd, yyyy').format(_tripDateFilter!) : 'Any'}',
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: () async {
+                        DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: _tripDateFilter ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          localSetState(() {
+                            _tripDateFilter = picked;
+                          });
+                        }
+                      },
+                    ),
+                    if (_tripDateFilter != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          localSetState(() {
+                            _tripDateFilter = null;
+                          });
+                        },
+                      ),
+                  ],
+                ),
+                // Minimum Passengers field with validation
                 TextField(
-                  controller: passengersController,
+                  controller: TextEditingController(
+                    text: _minPassengersFilter > 0 ? _minPassengersFilter.toString() : '',
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Minimum Passengers',
                   ),
                   keyboardType: TextInputType.number,
+                  onChanged: (val) {
+                    localSetState(() {
+                      _minPassengersFilter = int.tryParse(val) ?? 0;
+                    });
+                  },
                 ),
                 CheckboxListTile(
-                  value: restrictions,
+                  value: _tripRestrictionsFilter,
                   title: const Text('Only trips with restrictions'),
                   onChanged: (value) {
-                    setState(() {
-                      restrictions = value ?? false;
+                    localSetState(() {
+                      _tripRestrictionsFilter = value ?? false;
                     });
                   },
                   controlAffinity: ListTileControlAffinity.leading,
@@ -444,15 +424,15 @@ class _ExplorerState extends State<Explorer> {
             ),
             ElevatedButton(
               onPressed: () {
-                setState(() {
-                  _tripPickupGovernorateFilter = selectedPickupGovernorate;
-                  _tripPickupDistrictFilter = selectedPickupDistrict;
-                  _tripDropoffGovernorateFilter = selectedDropoffGovernorate;
-                  _tripDropoffDistrictFilter = selectedDropoffDistrict;
-                  _minPassengersFilter = int.tryParse(passengersController.text.trim()) ?? 0;
-                  _tripRestrictionsFilter = restrictions;
+                Navigator.pop(context, {
+                  'pickupGovernorate': _tripPickupGovernorateFilter,
+                  'pickupDistrict': _tripPickupDistrictFilter,
+                  'dropoffGovernorate': _tripDropoffGovernorateFilter,
+                  'dropoffDistrict': _tripDropoffDistrictFilter,
+                  'minPassengers': _minPassengersFilter,
+                  'restrictions': _tripRestrictionsFilter,
+                  'date': _tripDateFilter,
                 });
-                Navigator.pop(context);
               },
               child: const Text('Apply'),
             ),
@@ -460,36 +440,33 @@ class _ExplorerState extends State<Explorer> {
         ),
       ),
     );
+
+    if (result != null) {
+      setState(() {
+        _tripPickupGovernorateFilter = result['pickupGovernorate'] as String;
+        _tripPickupDistrictFilter = result['pickupDistrict'] as String;
+        _tripDropoffGovernorateFilter = result['dropoffGovernorate'] as String;
+        _tripDropoffDistrictFilter = result['dropoffDistrict'] as String;
+        _minPassengersFilter = result['minPassengers'] as int;
+        _tripRestrictionsFilter = result['restrictions'] as bool;
+        _tripDateFilter = result['date'] as DateTime?;
+      });
+    }
   }
 
   Future<void> _showDeliveryFilterDialog() async {
-    String selectedPickupGovernorate = _deliveryPickupGovernorateFilter;
-    String selectedPickupDistrict = _deliveryPickupDistrictFilter;
-    String selectedDropoffGovernorate = _deliveryDropoffGovernorateFilter;
-    String selectedDropoffDistrict = _deliveryDropoffDistrictFilter;
-    TextEditingController minWeightController = TextEditingController(
-      text: _minWeightFilter > 0 ? _minWeightFilter.toString() : '',
-    );
-    TextEditingController maxWeightController = TextEditingController(
-      text: _maxWeightFilter > 0 ? _maxWeightFilter.toString() : '',
-    );
-    TextEditingController minDimensionsController = TextEditingController(
-      text: _minDimensionsFilter > 0 ? _minDimensionsFilter.toString() : '',
-    );
-    bool restrictions = _deliveryRestrictionsFilter;
-
-    await showDialog(
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+        builder: (context, localSetState) => AlertDialog(
           title: const Text('Filter Deliveries'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Pickup Location', style: TextStyle(fontWeight: FontWeight.bold)),
+                // Pickup location filter: Governorate
                 DropdownButtonFormField<String>(
-                  value: selectedPickupGovernorate,
+                  value: _deliveryPickupGovernorateFilter,
                   decoration: const InputDecoration(
                     labelText: 'Pickup Governorate',
                   ),
@@ -500,38 +477,37 @@ class _ExplorerState extends State<Explorer> {
                     );
                   }).toList(),
                   onChanged: (value) {
-                    setState(() {
-                      selectedPickupGovernorate = value ?? 'all';
-                      selectedPickupDistrict = 'all';
+                    localSetState(() {
+                      _deliveryPickupGovernorateFilter = value ?? 'all';
+                      _deliveryPickupDistrictFilter = 'all';
                     });
                   },
                 ),
-                if (selectedPickupGovernorate != 'all') ...[
-                  const SizedBox(height: 16),
+                // Pickup location filter: District (only if valid governorate selected)
+                if (_deliveryPickupGovernorateFilter != 'all')
                   DropdownButtonFormField<String>(
-                    value: selectedPickupDistrict,
+                    value: _deliveryPickupDistrictFilter,
                     decoration: const InputDecoration(
                       labelText: 'Pickup District',
                     ),
-                    items: ['all', ...(kurdistanCities[selectedPickupGovernorate] ?? [])].map((district) {
+                    items: ['all', ...(kurdistanCities[_deliveryPickupGovernorateFilter] ?? [])]
+                        .map((district) {
                       return DropdownMenuItem<String>(
                         value: district,
-                        child: Text(district.toUpperCase()),
+                        child: Text(district),
                       );
                     }).toList(),
                     onChanged: (value) {
-                      setState(() {
-                        selectedPickupDistrict = value ?? 'all';
+                      localSetState(() {
+                        _deliveryPickupDistrictFilter = value ?? 'all';
                       });
                     },
                   ),
-                ],
-                const SizedBox(height: 24),
-                Text('Dropoff Location', style: TextStyle(fontWeight: FontWeight.bold)),
+                // Drop-off location filter: Governorate
                 DropdownButtonFormField<String>(
-                  value: selectedDropoffGovernorate,
+                  value: _deliveryDropoffGovernorateFilter,
                   decoration: const InputDecoration(
-                    labelText: 'Dropoff Governorate',
+                    labelText: 'Drop-off Governorate',
                   ),
                   items: ['all', ...kurdistanCities.keys].map((city) {
                     return DropdownMenuItem<String>(
@@ -540,60 +516,83 @@ class _ExplorerState extends State<Explorer> {
                     );
                   }).toList(),
                   onChanged: (value) {
-                    setState(() {
-                      selectedDropoffGovernorate = value ?? 'all';
-                      selectedDropoffDistrict = 'all';
+                    localSetState(() {
+                      _deliveryDropoffGovernorateFilter = value ?? 'all';
+                      _deliveryDropoffDistrictFilter = 'all';
                     });
                   },
                 ),
-                if (selectedDropoffGovernorate != 'all') ...[
-                  const SizedBox(height: 16),
+                // Drop-off location filter: District (only if valid governorate selected)
+                if (_deliveryDropoffGovernorateFilter != 'all')
                   DropdownButtonFormField<String>(
-                    value: selectedDropoffDistrict,
+                    value: _deliveryDropoffDistrictFilter,
                     decoration: const InputDecoration(
-                      labelText: 'Dropoff District',
+                      labelText: 'Drop-off District',
                     ),
-                    items: ['all', ...(kurdistanCities[selectedDropoffGovernorate] ?? [])].map((district) {
+                    items: ['all', ...(kurdistanCities[_deliveryDropoffGovernorateFilter] ?? [])]
+                        .map((district) {
                       return DropdownMenuItem<String>(
                         value: district,
-                        child: Text(district.toUpperCase()),
+                        child: Text(district),
                       );
                     }).toList(),
                     onChanged: (value) {
-                      setState(() {
-                        selectedDropoffDistrict = value ?? 'all';
+                      localSetState(() {
+                        _deliveryDropoffDistrictFilter = value ?? 'all';
                       });
                     },
                   ),
-                ],
-                const SizedBox(height: 16),
+                // Date filter for deliveries
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Filter Date: ${_deliveryDateFilter != null ? DateFormat('MMM dd, yyyy').format(_deliveryDateFilter!) : 'Any'}',
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: () async {
+                        DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: _deliveryDateFilter ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          localSetState(() {
+                            _deliveryDateFilter = picked;
+                          });
+                        }
+                      },
+                    ),
+                    if (_deliveryDateFilter != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          localSetState(() {
+                            _deliveryDateFilter = null;
+                          });
+                        },
+                      ),
+                  ],
+                ),
+                // Minimum Weight field with validation
                 TextField(
-                  controller: minWeightController,
+                  controller: TextEditingController(
+                    text: _minWeightFilter > 0 ? _minWeightFilter.toString() : '',
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Minimum Weight (kg)',
                   ),
                   keyboardType: TextInputType.number,
                 ),
-                TextField(
-                  controller: maxWeightController,
-                  decoration: const InputDecoration(
-                    labelText: 'Maximum Weight (kg)',
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: minDimensionsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Minimum Dimensions (cm³)',
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
                 CheckboxListTile(
-                  value: restrictions,
+                  value: _deliveryRestrictionsFilter,
                   title: const Text('Only deliveries with restrictions'),
                   onChanged: (value) {
-                    setState(() {
-                      restrictions = value ?? false;
+                    localSetState(() {
+                      _deliveryRestrictionsFilter = value ?? false;
                     });
                   },
                   controlAffinity: ListTileControlAffinity.leading,
@@ -608,17 +607,23 @@ class _ExplorerState extends State<Explorer> {
             ),
             ElevatedButton(
               onPressed: () {
-                setState(() {
-                  _deliveryPickupGovernorateFilter = selectedPickupGovernorate;
-                  _deliveryPickupDistrictFilter = selectedPickupDistrict;
-                  _deliveryDropoffGovernorateFilter = selectedDropoffGovernorate;
-                  _deliveryDropoffDistrictFilter = selectedDropoffDistrict;
-                  _minWeightFilter = double.tryParse(minWeightController.text.trim()) ?? 0;
-                  _maxWeightFilter = double.tryParse(maxWeightController.text.trim()) ?? 0;
-                  _minDimensionsFilter = double.tryParse(minDimensionsController.text.trim()) ?? 0;
-                  _deliveryRestrictionsFilter = restrictions;
+                Navigator.pop(context, {
+                  'pickupGovernorate': _deliveryPickupGovernorateFilter,
+                  'pickupDistrict': _deliveryPickupDistrictFilter,
+                  'dropoffGovernorate': _deliveryDropoffGovernorateFilter,
+                  'dropoffDistrict': _deliveryDropoffDistrictFilter,
+                  'minWeight': double.tryParse(
+                          (_minWeightFilter > 0 ? _minWeightFilter.toString() : '0').trim()) ??
+                      0,
+                  'maxWeight': double.tryParse(
+                          (_maxWeightFilter > 0 ? _maxWeightFilter.toString() : '0').trim()) ??
+                      0,
+                  'minDimensions': double.tryParse(
+                          (_minDimensionsFilter > 0 ? _minDimensionsFilter.toString() : '0').trim()) ??
+                      0,
+                  'restrictions': _deliveryRestrictionsFilter,
+                  'date': _deliveryDateFilter,
                 });
-                Navigator.pop(context);
               },
               child: const Text('Apply'),
             ),
@@ -626,6 +631,20 @@ class _ExplorerState extends State<Explorer> {
         ),
       ),
     );
+
+    if (result != null) {
+      setState(() {
+        _deliveryPickupGovernorateFilter = result['pickupGovernorate'] as String;
+        _deliveryPickupDistrictFilter = result['pickupDistrict'] as String;
+        _deliveryDropoffGovernorateFilter = result['dropoffGovernorate'] as String;
+        _deliveryDropoffDistrictFilter = result['dropoffDistrict'] as String;
+        _minWeightFilter = result['minWeight'] as double;
+        _maxWeightFilter = result['maxWeight'] as double;
+        _minDimensionsFilter = result['minDimensions'] as double;
+        _deliveryRestrictionsFilter = result['restrictions'] as bool;
+        _deliveryDateFilter = result['date'] as DateTime?;
+      });
+    }
   }
 
   Widget _buildTripsTab() {
@@ -689,6 +708,7 @@ class _ExplorerState extends State<Explorer> {
           _buildInfoRow('Date', DateFormat('MMM dd, yyyy').format(order.dateTime)),
           _buildInfoRow('Time', details['tripTime'] ?? 'Not specified'),
           _buildInfoRow('Status', order.status.toUpperCase()),
+          _buildInfoRow('Customer Phone', details['customerPhone'] ?? 'Not provided'),
           
           const Divider(height: 24),
           
@@ -739,6 +759,38 @@ class _ExplorerState extends State<Explorer> {
           ),
 
           const Divider(height: 24),
+
+          Text('Price Information:', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Card(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total Price:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${NumberFormat("#,##0").format(details['estimatedPrice'] ?? 0)} IQD',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color.fromARGB(255, 3, 76, 83),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  
+                ],
+              ),
+            ),
+          ),
 
           if (details['passengers'] != null) ...[
             Text('Passenger Information:', 
@@ -837,6 +889,7 @@ class _ExplorerState extends State<Explorer> {
               : 'N/A'),
           _buildInfoRow('Time', details['deliveryTime'] ?? 'N/A'),
           _buildInfoRow('Status', details['status']?.toUpperCase() ?? 'PENDING'),
+          _buildInfoRow('Customer Phone', details['customerPhone'] ?? 'Not provided'),
 
           const Divider(height: 24),
 
@@ -877,6 +930,39 @@ class _ExplorerState extends State<Explorer> {
                   _buildInfoRow('Dimensions',
                       '${dimensions['height'] ?? 'N/A'}x${dimensions['width'] ?? 'N/A'}x${dimensions['depth'] ?? 'N/A'} cm'),
                   _buildInfoRow('Weight', '${dimensions['weight'] ?? 'N/A'} kg'),
+                ],
+              ),
+            ),
+          ),
+
+          const Divider(height: 24),
+
+          Text('Price Information:', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Card(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total Price:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${NumberFormat("#,##0").format(details['estimatedPrice'] ?? 0)} IQD',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color.fromARGB(255, 3, 76, 83),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
                 ],
               ),
             ),
@@ -1145,14 +1231,12 @@ class _ExplorerState extends State<Explorer> {
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () {
-                print('Debug: ${details['type']}'); // Add this debug print
-                print('Debug - Order Details: ${details.toString()}');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => Droute(
-                     // orderDetails: details,
-                      //orderType: details['type'] ?? 'Order',
+                      orderId: details['id'] ?? '', // Pass the actual order ID
+                      orderType: details['type'] ?? '', // Pass the actual order type
                     ),
                   ),
                 );
@@ -1163,17 +1247,6 @@ class _ExplorerState extends State<Explorer> {
                 backgroundColor: Colors.blue,
                 minimumSize: const Size(double.infinity, 45),
               ),
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () {
-                // TODO: Implement start trip/delivery
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                minimumSize: const Size(double.infinity, 45),
-              ),
-              child: Text('Start ${details['type'] ?? 'Order'}'),
             ),
           ],
         ],
@@ -1199,37 +1272,100 @@ class ActiveOrder {
   
 factory ActiveOrder.fromFirestore(DocumentSnapshot doc) {
   final data = doc.data() as Map<String, dynamic>;
-  print('Processing document: ${doc.id}'); // Debug log
-  print('Document data: $data'); // Debug log
   
   DateTime orderDateTime;
   String type;
+  Map<String, dynamic> details;
   
   try {
     if (data['tripDate'] != null) {
       orderDateTime = (data['tripDate'] as Timestamp).toDate();
       type = 'Trip';
+      
+      // Process passengers data to include their locations
+      List<Map<String, dynamic>> processedPassengers = [];
+      if (data['passengers'] != null) {
+        processedPassengers = (data['passengers'] as List).map((passenger) {
+          return {
+            'gender': passenger['gender'],
+            'age': passenger['age'],
+            'pickupCity': passenger['locations']?['source']?['city'],
+            'pickupRegion': passenger['locations']?['source']?['region'],
+            'dropoffCity': passenger['locations']?['destination']?['city'],
+            'dropoffRegion': passenger['locations']?['destination']?['region'],
+          };
+        }).toList();
+      }
+      
+      details = {
+        ...data,
+        'customerPhone': data['userPhone'],
+        'pickupCity': data['routeDetails']?['pickupCity'],
+        'pickupRegion': data['routeDetails']?['pickupRegion'],
+        'dropoffCity': data['routeDetails']?['dropoffCity'],
+        'dropoffRegion': data['routeDetails']?['dropoffRegion'],
+        'passengers': processedPassengers,
+        'tripTime': data['tripTime'],
+      };
     } else if (data['deliveryDate'] != null) {
       orderDateTime = (data['deliveryDate'] as Timestamp).toDate();
       type = 'Delivery';
+      details = {
+        ...data,
+        'customerPhone': data['userPhone'],
+      };
     } else {
-      print('Warning: No date found for order ${doc.id}'); // Debug log
       orderDateTime = DateTime.now();
       type = 'Unknown';
+      details = data;
     }
 
-    data['type'] = type;
+    print('Processed route details: ${details['pickupCity']}, ${details['pickupRegion']} -> ${details['dropoffCity']}, ${details['dropoffRegion']}'); // Debug log
 
     return ActiveOrder(
       id: doc.id,
       type: type,
       dateTime: orderDateTime,
       status: data['status'] ?? 'pending',
-      details: data,
+      details: details,
     );
   } catch (e) {
     print('Error processing document ${doc.id}: $e'); // Debug log
     rethrow;
   }
+}
+
+Future<void> _saveTrip() async {
+  // Get the current user's phone number
+  final userDoc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(FirebaseAuth.instance.currentUser?.uid)
+      .get();
+  
+  final userData = userDoc.data();
+  final userPhone = userData?['phone'];
+
+  await FirebaseFirestore.instance.collection('trips').add({
+    'userId': FirebaseAuth.instance.currentUser?.uid,
+    'userPhone': userPhone,
+    // ... rest of the trip data ...
+  });
+}
+
+Future<void> _saveDelivery() async {
+  // Get the current user's phone number
+  final userDoc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(FirebaseAuth.instance.currentUser?.uid)
+      .get();
+  
+  final userData = userDoc.data();
+  final userPhone = userData?['phone'];
+
+  await FirebaseFirestore.instance.collection('deliveries').add({
+    'userId': FirebaseAuth.instance.currentUser?.uid,
+    'userPhone': userPhone,
+    // ... rest of the delivery data ...
+  });
 }
 }

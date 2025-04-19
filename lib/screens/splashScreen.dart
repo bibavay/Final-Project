@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/Customers.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/DriverDashboard.dart';
-import 'package:flutter_application_4th_year_project/screens/authenticaion/signin_screen.dart';
-
+import 'package:transportaion_and_delivery/screens/Customers/Customers.dart';
+import 'package:transportaion_and_delivery/screens/Drivers/Driverdashboard.dart';
+import 'package:transportaion_and_delivery/screens/authenticaion/signin_screen.dart';
+import 'dart:async';
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -52,62 +52,135 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    final User? user = FirebaseAuth.instance.currentUser;
+    try {
+      final User? user = FirebaseAuth.instance.currentUser;
 
-    // Longer delay for logo visibility
-    await Future.delayed(const Duration(milliseconds: 2000));
-    
-    if (!mounted) return;
+      // Add timeout to Future.delayed to prevent infinite waiting
+      await Future.delayed(const Duration(milliseconds: 2000))
+          .timeout(const Duration(seconds: 5), onTimeout: () {
+        throw TimeoutException('Navigation timeout exceeded');
+      });
+      
+      if (!mounted) return;
 
-    final String? role = await _getUserRole(user);
-    Widget nextScreen;
-    
-    if (user == null) {
-      nextScreen = const SigninScreen();
-    } else {
-      switch (role) {
-        case 'driver':
-          nextScreen = const DriverDashboard();
-          break;
-        case 'customer':
-          nextScreen = const CustomerDashboard();
-          break;
-        default:
-          nextScreen = const SigninScreen();
+      final String? role = await _getUserRole(user)
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        throw TimeoutException('Role fetch timeout exceeded');
+      });
+
+      Widget nextScreen;
+      
+      if (user == null || role == null) {
+        nextScreen = const SigninScreen();
+      } else {
+        switch (role) {
+          case 'driver':
+            nextScreen = const DriverDashboard();
+            break;
+          case 'customer':
+            nextScreen = const CustomerDashboard();
+            break;
+          default:
+            debugPrint('Unknown role: $role');
+            nextScreen = const SigninScreen();
+        }
       }
+
+      if (!mounted) return;
+
+      await _fadeController.forward();
+      
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => nextScreen,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 500), // Reduced from 1000
+        ),
+      );
+      
+    } on FirebaseException catch (e, stackTrace) {
+      debugPrint('Firebase error: ${e.message}');
+      debugPrint('Error code: ${e.code}');
+      debugPrint('Stack trace: $stackTrace');
+      _handleNavigationError();
+    } on TimeoutException catch (e) {
+      debugPrint('Timeout error: $e');
+      _handleNavigationError();
+    } catch (e, stackTrace) {
+      debugPrint('Navigation error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      _handleNavigationError();
     }
+  }
 
-    // Start fade out and navigate
-    await _fadeController.forward();
-    
-    if (!mounted) return;
-
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => nextScreen,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 500), // Reduced from 1000
-      ),
-    );
+  void _handleNavigationError() {
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const SigninScreen()),
+      );
+    }
   }
 
   Future<String?> _getUserRole(User? user) async {
-    if (user == null) return null;
+    if (user == null) {
+      debugPrint('getUserRole called with null user');
+      return null;
+    }
 
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
-          .get();
-      return doc.data()?['role'] as String?;
-    } catch (e) {
-      debugPrint('Error getting user role: $e');
+          .get()
+          .timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => throw TimeoutException('Firestore fetch timeout'),
+          );
+            
+      if (!doc.exists) {
+        debugPrint('User document does not exist for uid: ${user.uid}');
+        return null;
+      }
+      
+      final data = doc.data();
+      if (data == null) {
+        debugPrint('Document data is null for user: ${user.uid}');
+        return null;
+      }
+      
+      final role = data['role'] as String?;
+      if (role == null) {
+        debugPrint('Role field is missing for user: ${user.uid}');
+        return null;
+      }
+      
+      if (role != 'driver' && role != 'customer') {
+        debugPrint('Invalid role value: $role');
+        return null;
+      }
+      
+      return role;
+      
+    } on FirebaseException catch (e, stackTrace) {
+      debugPrint('Firestore error: ${e.message}');
+      debugPrint('Error code: ${e.code}');
+      debugPrint('Stack trace: $stackTrace');
+      return null;
+    } on TimeoutException catch (e) {
+      debugPrint('Timeout while fetching user role: $e');
+      return null;
+    } catch (e, stackTrace) {
+      debugPrint('Unexpected error getting user role: $e');
+      debugPrint('Stack trace: $stackTrace');
       return null;
     }
   }

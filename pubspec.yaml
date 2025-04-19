@@ -1,5 +1,5 @@
-name: flutter_application_4th_year_project
-description: "A new Flutter project."
+name: transportaion_and_delivery
+description: "Quick move: transportaion and delivery sevices app"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -47,6 +47,7 @@ dependencies:
   intl: ^0.20.2
   flutter_polyline_points: ^2.0.0
   flutter_rating_bar: ^4.0.1
+  rxdart: ^0.27.7  # or the latest version
 
 dev_dependencies:
   flutter_test:
@@ -58,6 +59,15 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_native_splash:
+  enable: false  
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/appLogo.jpg"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -73,6 +83,10 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/logo.png
+    - assets/images/appLogo.jpg
+
+    
+   
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

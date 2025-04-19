@@ -39,7 +39,7 @@ class _DHistoryState extends State<DHistory> with SingleTickerProviderStateMixin
     if (driverId == null) return Stream.value([]);
 
     final collection = type == 'Trip' ? 'trips' : 'deliveries';
-    final now = DateTime.now();
+    //final now = DateTime.now();
 
     return _firestore
         .collection(collection)
@@ -221,15 +221,28 @@ class _DHistoryState extends State<DHistory> with SingleTickerProviderStateMixin
             Text('Customer: ${order['userName'] ?? 'N/A'}'),
             Text('Phone: ${order['userPhone'] ?? 'N/A'}'),
             const SizedBox(height: 8),
+            const Text('Location Details:', style: TextStyle(fontWeight: FontWeight.bold)),
+            ListTile(
+              leading: const Icon(Icons.location_on, color: Colors.green),
+              title: const Text('Pickup Location'),
+              subtitle: Text(order['pickupAddress'] ?? 'N/A'),
+              dense: true,
+              visualDensity: const VisualDensity(vertical: -4),
+            ),
+            ListTile(
+              leading: const Icon(Icons.location_on, color: Colors.red),
+              title: const Text('Drop-off Location'),
+              subtitle: Text(order['dropoffAddress'] ?? 'N/A'),
+              dense: true,
+              visualDensity: const VisualDensity(vertical: -4),
+            ),
+            const SizedBox(height: 8),
             const Text('Passengers:', style: TextStyle(fontWeight: FontWeight.bold)),
             ...List.from(order['passengers'] ?? []).map((passenger) => Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('• Gender: ${passenger['gender']}'),
                 Text('  Age: ${passenger['age']}'),
-                if (passenger['sourceLocation'] != null)
-                  Text('  Pickup: (${(passenger['sourceLocation'] as GeoPoint).latitude}, '
-                      '${(passenger['sourceLocation'] as GeoPoint).longitude})'),
                 const SizedBox(height: 4),
               ],
             )),
@@ -239,6 +252,22 @@ class _DHistoryState extends State<DHistory> with SingleTickerProviderStateMixin
             Text('Sender: ${order['senderName'] ?? 'N/A'}'),
             Text('Recipient: ${order['recipientName'] ?? 'N/A'}'),
             Text('Contact: ${order['recipientPhone'] ?? 'N/A'}'),
+            const SizedBox(height: 8),
+            const Text('Location Details:', style: TextStyle(fontWeight: FontWeight.bold)),
+            ListTile(
+              leading: const Icon(Icons.location_on, color: Colors.green),
+              title: const Text('Pickup Location'),
+              subtitle: Text(order['pickupAddress'] ?? 'N/A'),
+              dense: true,
+              visualDensity: const VisualDensity(vertical: -4),
+            ),
+            ListTile(
+              leading: const Icon(Icons.location_on, color: Colors.red),
+              title: const Text('Drop-off Location'),
+              subtitle: Text(order['dropoffAddress'] ?? 'N/A'),
+              dense: true,
+              visualDensity: const VisualDensity(vertical: -4),
+            ),
             if (order['package'] != null) ...[
               const SizedBox(height: 8),
               const Text('Package:', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -249,9 +278,8 @@ class _DHistoryState extends State<DHistory> with SingleTickerProviderStateMixin
             ],
           ],
           const Divider(),
-          Text('Earnings: \$${order['driverEarnings']?.toStringAsFixed(2) ?? '0.00'}'),
           const SizedBox(height: 8),
-          if (order['feedbackGiven'] == true && order['comment'] != null) ...[
+          if (order['comment'] != null && order['comment'].toString().isNotEmpty) ...[
             const Text('Customer Feedback:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Container(
@@ -260,7 +288,7 @@ class _DHistoryState extends State<DHistory> with SingleTickerProviderStateMixin
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(order['comment']),
+              child: Text(order['comment'].toString()),
             ),
           ],
         ],

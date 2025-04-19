@@ -2,11 +2,11 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/Cemailverification.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/location_picker.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/Demailverification.dart';
-import 'package:flutter_application_4th_year_project/service/firestore.dart';
-import 'package:flutter_application_4th_year_project/utils/color_utils.dart';
+import 'package:transportaion_and_delivery/screens/Customers/Cemailverification.dart';
+import 'package:transportaion_and_delivery/screens/Customers/location_picker.dart';
+import 'package:transportaion_and_delivery/screens/Drivers/Demailverification.dart';
+import 'package:transportaion_and_delivery/service/firestore.dart';
+import 'package:transportaion_and_delivery/utils/color_utils.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 

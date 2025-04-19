@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/location_picker.dart';
+import 'package:transportaion_and_delivery/screens/Customers/location_picker.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -51,6 +51,7 @@ class _NewtripState extends State<Newtrip> {
   String? selectedPickupRegion;
   String? selectedDropoffCity;
   String? selectedDropoffRegion;
+  
 
   final Map<String, List<String>> kurdistanCities = {
     'Erbil': [
@@ -118,6 +119,7 @@ class _NewtripState extends State<Newtrip> {
 
   // Add this variable to track if form was submitted
   bool _showValidationErrors = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -658,39 +660,55 @@ class _NewtripState extends State<Newtrip> {
     }
 
     try {
+      setState(() => _isLoading = true);
+      
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      List<Map<String, dynamic>> passengersData = passengers.map((passenger) {
-        return {
-          'gender': passenger.gender,
-          'age': passenger.age,
-          'sourceLocation': GeoPoint(
-            passenger.sourceLocation?.latitude ?? 0,
-            passenger.sourceLocation?.longitude ?? 0,
-          ),
-          'destinationLocation': GeoPoint(
-            passenger.destinationLocation?.latitude ?? 0,
-            passenger.destinationLocation?.longitude ?? 0,
-          ),
+      // Get user's phone number from Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      
+      final userPhone = userDoc.data()?['phone'] as String?;
+
+      await FirebaseFirestore.instance.collection('trips').add({
+        'userId': user.uid,
+        'userPhone': userPhone, // Add user's phone number
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+        'tripDate': Timestamp.fromDate(tripDate!),
+        'tripTime': '${tripTime!.hour}:${tripTime!.minute}',
+        'estimatedPrice': estimatedPrice,
+        'passengers': passengers.map((p) => {
+          'gender': p.gender,
+          'age': p.age,
+          'locations': {
+            'source': {
+              'coordinates': GeoPoint(
+                p.sourceLocation!.latitude,
+                p.sourceLocation!.longitude,
+              ),
+              'city': _pickupCityController.text,
+              'region': _pickupRegionController.text,
+            },
+            'destination': {
+              'coordinates': GeoPoint(
+                p.destinationLocation!.latitude,
+                p.destinationLocation!.longitude,
+              ),
+              'city': _dropoffCityController.text,
+              'region': _dropoffRegionController.text,
+            }
+          },
+        }).toList(),
+        'routeDetails': {
           'pickupCity': _pickupCityController.text,
           'pickupRegion': _pickupRegionController.text,
           'dropoffCity': _dropoffCityController.text,
           'dropoffRegion': _dropoffRegionController.text,
-        };
-      }).toList();
-
-      await FirebaseFirestore.instance.collection('trips').add({
-        'userId': user.uid,
-        'tripDate': Timestamp.fromDate(tripDate!),
-        'tripTime': '${tripTime!.hour}:${tripTime!.minute}',
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'passengers': passengersData,
-        'pickupCity': _pickupCityController.text,
-        'pickupRegion': _pickupRegionController.text,
-        'dropoffCity': _dropoffCityController.text,
-        'dropoffRegion': _dropoffRegionController.text,
+        },
       });
 
       if (!mounted) return;

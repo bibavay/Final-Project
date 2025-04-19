@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/CActive.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/CHistory.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/CustomerProfile.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/Order.dart';
+import 'package:transportaion_and_delivery/screens/Customers/order.dart';
+import 'package:transportaion_and_delivery/screens/Customers/CActive.dart';
+import 'package:transportaion_and_delivery/screens/Customers/CHistory.dart';
+import 'package:transportaion_and_delivery/screens/Customers/CustomerProfile.dart';
 
 class CustomerDashboard extends StatefulWidget {
   const CustomerDashboard({super.key});

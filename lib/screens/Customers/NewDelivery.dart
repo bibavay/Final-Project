@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/location_picker.dart';
-import 'package:flutter_application_4th_year_project/service/firestore.dart';
+import 'package:transportaion_and_delivery/screens/Customers/location_picker.dart';
+import 'package:transportaion_and_delivery/service/firestore.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
@@ -244,12 +244,22 @@ class _NewDeliveryState extends State<NewDelivery> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
+      // Get user's phone number from Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      
+      final userPhone = userDoc.data()?['phone'] as String?;
+
       await FirebaseFirestore.instance.collection('deliveries').add({
         'userId': user.uid,
+        'userPhone': userPhone, // Add user's phone number
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
         'deliveryDate': Timestamp.fromDate(deliveryDate!),
         'deliveryTime': '${deliveryTime!.hour}:${deliveryTime!.minute}',
+        'estimatedPrice': estimatedPrice,
         'package': {
           'dimensions': {
             'height': package.height,

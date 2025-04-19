@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/Explorer.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/DHistory.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/DriverProfile.dart';
+import 'package:transportaion_and_delivery/screens/Drivers/Explorer.dart';
+import 'package:transportaion_and_delivery/screens/Drivers/DHistory.dart';
+import 'package:transportaion_and_delivery/screens/Drivers/DriverProfile.dart';
 
 class DriverDashboard extends StatefulWidget {
   const DriverDashboard({super.key});
@@ -17,12 +17,6 @@ class _DriverDashboardState extends State<DriverDashboard> {
     const Explorer(),      // Explorer
     const DHistory(),     // Order History
     const DriverProfile() // Profile
-  ];
-
-  final List<String> _titles = [
-    'Explorer',
-    'Order History',
-    'Profile'
   ];
 
   @override

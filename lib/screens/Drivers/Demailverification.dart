@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/screens/Drivers/DriverDashboard.dart';
+import 'package:transportaion_and_delivery/screens/Drivers/DriverDashboard.dart';
 
 class DEmailverify extends StatefulWidget {
   const DEmailverify({super.key});

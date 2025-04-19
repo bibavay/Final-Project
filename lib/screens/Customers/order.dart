@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/NewDelivery.dart';
-import 'package:flutter_application_4th_year_project/screens/Customers/NewTrip.dart';
+import 'package:transportaion_and_delivery/screens/Customers/NewDelivery.dart';
+import 'package:transportaion_and_delivery/screens/Customers/NewTrip.dart';
 
 class OrderScreen extends StatelessWidget {
   const OrderScreen({super.key});

@@ -6,7 +6,7 @@ package="com.example.flutter_application_4th_year_project">
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <application
-        android:label="flutter_application_4th_year_project"
+        android:label="Quick Delivery and Transportation"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

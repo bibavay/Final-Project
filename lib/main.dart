@@ -1,7 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_4th_year_project/firebase_options.dart';
-import 'package:flutter_application_4th_year_project/screens/splashScreen.dart';
+
+import 'package:transportaion_and_delivery/firebase_options.dart';
+import 'package:transportaion_and_delivery/screens/splashScreen.dart';
 import 'screens/authenticaion/signin_screen.dart';
 
 void main() async {
