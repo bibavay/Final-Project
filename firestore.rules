@@ -16,5 +16,13 @@ service cloud.firestore {
     match /drivers/{driverId} {
       allow read: if request.auth != null;
     }
+    match /trips/{tripId} {
+      allow update: if request.auth != null && 
+                      resource.data.userId == request.auth.uid;
+    }
+    match /deliveries/{deliveryId} {
+      allow update: if request.auth != null && 
+                      resource.data.userId == request.auth.uid;
+    }
   }
 }

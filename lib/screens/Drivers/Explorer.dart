@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:transportaion_and_delivery/screens/Drivers/Droute.dart';
+import 'package:latlong2/latlong.dart';
+
+import 'Droute.dart';
 
 class Explorer extends StatefulWidget {
   const Explorer({super.key});
@@ -1230,17 +1232,7 @@ class _ExplorerState extends State<Explorer> {
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => Droute(
-                      orderId: details['id'] ?? '', // Pass the actual order ID
-                      orderType: details['type'] ?? '', // Pass the actual order type
-                    ),
-                  ),
-                );
-              },
+              onPressed: () => _navigateToMap(details, details['type']),
               icon: const Icon(Icons.map),
               label: const Text('View Route'),
               style: ElevatedButton.styleFrom(
@@ -1252,6 +1244,121 @@ class _ExplorerState extends State<Explorer> {
         ],
       ),
     );
+  }
+
+  void _navigateToMap(Map<String, dynamic> details, String type) {
+    List<Location> pickupLocations = [];
+    List<Location> dropoffLocations = [];
+
+    try {
+      print('Full details: $details'); // Debug log
+
+      if (type == 'Trip') {
+        // 1. Main route locations
+        final routeDetails = details['routeDetails'];
+        if (routeDetails != null) {
+          if (routeDetails['pickupLocation'] != null) {
+            final pickup = routeDetails['pickupLocation'];
+            print('Main pickup location: $pickup');
+            
+            try {
+              pickupLocations.add(Location(
+                latLng: LatLng(
+                  double.parse(pickup['latitude'].toString()),
+                  double.parse(pickup['longitude'].toString())
+                ),
+                name: 'Main Pickup: ${routeDetails['pickupCity'] ?? 'Unknown'}, ${routeDetails['pickupRegion'] ?? 'Unknown'}',
+              ));
+            } catch (e) {
+              print('Error parsing main pickup location: $e');
+            }
+          }
+
+          if (routeDetails['dropoffLocation'] != null) {
+            final dropoff = routeDetails['dropoffLocation'];
+            print('Main dropoff location: $dropoff');
+            
+            try {
+              dropoffLocations.add(Location(
+                latLng: LatLng(
+                  double.parse(dropoff['latitude'].toString()),
+                  double.parse(dropoff['longitude'].toString())
+                ),
+                name: 'Main Dropoff: ${routeDetails['dropoffCity'] ?? 'Unknown'}, ${routeDetails['dropoffRegion'] ?? 'Unknown'}',
+              ));
+            } catch (e) {
+              print('Error parsing main dropoff location: $e');
+            }
+          }
+        }
+
+        // 2. Passenger locations
+        final passengers = details['passengers'] as List<dynamic>?;
+        if (passengers != null) {
+          for (var passenger in passengers) {
+            try {
+              // Get passenger pickup location
+              if (passenger['locations']?['source']?['coordinates'] != null) {
+                final source = passenger['locations']['source']['coordinates'];
+                print('Passenger pickup location: $source');
+                
+                pickupLocations.add(Location(
+                  latLng: LatLng(
+                    double.parse(source['latitude'].toString()),
+                    double.parse(source['longitude'].toString())
+                  ),
+                  name: 'Passenger Pickup: ${passenger['locations']['source']['city'] ?? 'Unknown'}, ${passenger['locations']['source']['region'] ?? 'Unknown'}',
+                ));
+              }
+
+              // Get passenger dropoff location
+              if (passenger['locations']?['destination']?['coordinates'] != null) {
+                final destination = passenger['locations']['destination']['coordinates'];
+                print('Passenger dropoff location: $destination');
+                
+                dropoffLocations.add(Location(
+                  latLng: LatLng(
+                    double.parse(destination['latitude'].toString()),
+                    double.parse(destination['longitude'].toString())
+                  ),
+                  name: 'Passenger Dropoff: ${passenger['locations']['destination']['city'] ?? 'Unknown'}, ${passenger['locations']['destination']['region'] ?? 'Unknown'}',
+                ));
+              }
+            } catch (e) {
+              print('Error processing passenger locations: $e');
+            }
+          }
+        }
+
+      } else if (type == 'Delivery') {
+        // ... existing delivery location handling code ...
+      }
+
+      print('Found ${pickupLocations.length} pickup locations');
+      print('Found ${dropoffLocations.length} dropoff locations');
+
+      if (pickupLocations.isEmpty && dropoffLocations.isEmpty) {
+        throw Exception('No valid locations found in the data structure');
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MapView(
+            pickupLocations: pickupLocations,
+            dropoffLocations: dropoffLocations,
+          ),
+        ),
+      );
+    } catch (e) {
+      print('Error processing location data: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Location data not available: ${e.toString()}'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 }
 

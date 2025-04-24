@@ -5,119 +5,149 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Droute extends StatefulWidget {
   final String orderId;
-  final String orderType; // 'Trip' or 'Delivery'
+  final String orderType;
 
   const Droute({
-    super.key, 
+    Key? key,
     required this.orderId,
     required this.orderType,
-  });
+  }) : super(key: key);
 
   @override
   State<Droute> createState() => _DrouteState();
 }
 
 class _DrouteState extends State<Droute> {
-  final mapController = MapController();
-  LatLng? pickupLocation;
-  LatLng? dropoffLocation;
+  List<Location> pickupLocations = [];
+  List<Location> dropoffLocations = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchLocations();
+    _loadLocations();
   }
 
-  Future<void> _fetchLocations() async {
+  Future<void> _loadLocations() async {
     try {
-      print('Fetching locations for order: ${widget.orderId}, type: ${widget.orderType}');
-      final collection = widget.orderType == 'Trip' ? 'trips' : 'deliveries';
-      final doc = await FirebaseFirestore.instance
-          .collection(collection)
+      final DocumentSnapshot orderDoc = await FirebaseFirestore.instance
+          .collection(widget.orderType.toLowerCase() == 'trip' ? 'trips' : 'deliveries')
           .doc(widget.orderId)
           .get();
 
-      if (!doc.exists) {
-        print('Document does not exist');
-        return;
-      }
+      if (!orderDoc.exists) return;
 
-      final data = doc.data()!;
-      print('Retrieved data: $data'); // Debug print
-      
-      if (widget.orderType == 'Trip') {
-        // For trips
-        if (data['pickupLocation'] != null) {
-          pickupLocation = LatLng(
-            data['pickupLocation']['latitude'],
-            data['pickupLocation']['longitude'],
-          );
-        }
-        if (data['dropoffLocation'] != null) {
-          dropoffLocation = LatLng(
-            data['dropoffLocation']['latitude'],
-            data['dropoffLocation']['longitude'],
-          );
+      final data = orderDoc.data() as Map<String, dynamic>;
+      List<Location> newPickupLocations = [];
+      List<Location> newDropoffLocations = [];
+
+      if (widget.orderType.toLowerCase() == 'trip') {
+        if (data['passengers'] != null) {
+          for (var passenger in data['passengers']) {
+            if (passenger['locations'] != null) {
+              // Add pickup location
+              if (passenger['locations']['source'] != null) {
+                newPickupLocations.add(
+                  Location(
+                    latLng: LatLng(
+                      passenger['locations']['source']['latitude'],
+                      passenger['locations']['source']['longitude'],
+                    ),
+                    name: 'Pickup',
+                  ),
+                );
+              }
+              // Add dropoff location
+              if (passenger['locations']['destination'] != null) {
+                newDropoffLocations.add(
+                  Location(
+                    latLng: LatLng(
+                      passenger['locations']['destination']['latitude'],
+                      passenger['locations']['destination']['longitude'],
+                    ),
+                    name: 'Dropoff',
+                  ),
+                );
+              }
+            }
+          }
         }
       } else {
-        // For deliveries
-        if (data['package']?['locations']?['source'] != null) {
-          pickupLocation = LatLng(
-            data['package']['locations']['source']['latitude'],
-            data['package']['locations']['source']['longitude'],
+        // Handle delivery locations
+        final package = data['package'] as Map<String, dynamic>;
+        final locations = package['locations'] as Map<String, dynamic>;
+
+        // Add pickup location
+        if (locations['source'] != null) {
+          newPickupLocations.add(
+            Location(
+              latLng: LatLng(
+                locations['source']['latitude'],
+                locations['source']['longitude'],
+              ),
+              name: 'Pickup',
+            ),
           );
         }
-        if (data['package']?['locations']?['destination'] != null) {
-          dropoffLocation = LatLng(
-            data['package']['locations']['destination']['latitude'],
-            data['package']['locations']['destination']['longitude'],
+
+        // Add dropoff location
+        if (locations['destination'] != null) {
+          newDropoffLocations.add(
+            Location(
+              latLng: LatLng(
+                locations['destination']['latitude'],
+                locations['destination']['longitude'],
+              ),
+              name: 'Dropoff',
+            ),
           );
         }
       }
 
-      print('Pickup location: $pickupLocation'); // Debug print
-      print('Dropoff location: $dropoffLocation'); // Debug print
-
-      setState(() {});
-
-      // Center map to show both markers
-      if (pickupLocation != null && dropoffLocation != null) {
-        _fitBounds();
-      }
+      setState(() {
+        pickupLocations = newPickupLocations;
+        dropoffLocations = newDropoffLocations;
+      });
     } catch (e) {
-      print('Error fetching locations: $e');
+      print('Error loading locations: $e');
     }
-  }
-
-  void _fitBounds() {
-    if (pickupLocation == null || dropoffLocation == null) return;
-    
-    final bounds = LatLngBounds.fromPoints([
-      pickupLocation!,
-      dropoffLocation!,
-    ]);
-    
-    mapController.fitBounds(
-      bounds,
-      options: const FitBoundsOptions(
-        padding: EdgeInsets.all(50.0),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    return MapView(
+      pickupLocations: pickupLocations,
+      dropoffLocations: dropoffLocations,
+    );
+  }
+}
+
+class MapView extends StatelessWidget {
+  final List<Location> pickupLocations;
+  final List<Location> dropoffLocations;
+
+  const MapView({
+    Key? key,
+    required this.pickupLocations,
+    required this.dropoffLocations,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Calculate bounds to fit all markers
+    final bounds = LatLngBounds.fromPoints([
+      ...pickupLocations.map((loc) => loc.latLng),
+      ...dropoffLocations.map((loc) => loc.latLng),
+    ]);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Driver Route'),
+        title: const Text('Route Map'),
         backgroundColor: const Color.fromARGB(255, 3, 76, 83),
-        foregroundColor: Colors.white,
       ),
       body: FlutterMap(
-        mapController: mapController,
         options: MapOptions(
-          initialCenter: const LatLng(-1.2921, 36.8219),
-          initialZoom: 13,
+          bounds: bounds,
+          boundsOptions: const FitBoundsOptions(padding: EdgeInsets.all(50.0)),
         ),
         children: [
           TileLayer(
@@ -126,62 +156,43 @@ class _DrouteState extends State<Droute> {
           ),
           MarkerLayer(
             markers: [
-              if (pickupLocation != null)
-                Marker(
-                  point: pickupLocation!,
-                  width: 80,
-                  height: 80,
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: Colors.green,
-                        size: 40,
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'Pickup',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ],
+              // Pickup location markers
+              ...pickupLocations.map(
+                (location) => Marker(
+                  point: location.latLng,
+                  width: 40,
+                  height: 40,
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.blue,
+                    size: 40,
                   ),
                 ),
-              if (dropoffLocation != null)
-                Marker(
-                  point: dropoffLocation!,
-                  width: 80,
-                  height: 80,
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: Colors.red,
-                        size: 40,
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'Dropoff',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ],
+              ),
+              // Dropoff location markers
+              ...dropoffLocations.map(
+                (location) => Marker(
+                  point: location.latLng,
+                  width: 40,
+                  height: 40,
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.red,
+                    size: 40,
                   ),
                 ),
+              ),
             ],
           ),
         ],
       ),
     );
   }
+}
+
+class Location {
+  final LatLng latLng;
+  final String name;
+
+  Location({required this.latLng, required this.name});
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:rxdart/rxdart.dart';
 
 class ActiveOrder {
   final String id;
@@ -32,13 +31,12 @@ class ActiveOrder {
       type = 'Trip';
       details = {
         ...data,
-        'pickupCity': data['pickupCity'] ?? 'N/A',
-        'pickupRegion': data['pickupRegion'] ?? 'N/A',
-        'dropoffCity': data['dropoffCity'] ?? 'N/A',
-        'dropoffRegion': data['dropoffRegion'] ?? 'N/A',
-        'tripTime': data['tripTime'],
-        'estimatedPrice': data['estimatedPrice'],
-        'passengers': data['passengers'] ?? [],
+        'orderId': doc.id,
+        'id': doc.id,
+        'pendingDriverId': data['pendingDriverId'],
+        'driverRequestTime': data['driverRequestTime'],
+        'pickupLocation': data['pickupLocation'],
+        'dropoffLocation': data['dropoffLocation'],
       };
     } else {
       // Delivery handling - standardize to match trip format
@@ -46,6 +44,10 @@ class ActiveOrder {
       type = 'Delivery';
       details = {
         ...data,
+        'orderId': doc.id,
+        'id': doc.id,
+        'pendingDriverId': data['pendingDriverId'],
+        'driverRequestTime': data['driverRequestTime'],
         'pickupLocation': data['package']?['locations']?['source'],
         'dropoffLocation': data['package']?['locations']?['destination'],
         'package': data['package'] ?? {},
@@ -74,42 +76,323 @@ class CActive extends StatefulWidget {
   State<CActive> createState() => _CActiveState();
 }
 
-class _CActiveState extends State<CActive> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+class _CActiveState extends State<CActive> with SingleTickerProviderStateMixin {
+  final _firestore = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
+  late TabController _tabController;
 
-  Stream<List<ActiveOrder>> _getActiveOrders() {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return Stream.value([]);
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
 
-    final tripsStream = _firestore
-        .collection('trips')
-        .where('userId', isEqualTo: userId)
-        .where('status', whereIn: ['pending', 'driver_pending', 'confirmed'])
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ActiveOrder.fromFirestore(doc))
-            .toList());
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
-    final deliveriesStream = _firestore
-        .collection('deliveries')
-        .where('userId', isEqualTo: userId)
-        .where('status', whereIn: ['pending', 'driver_pending', 'confirmed'])
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ActiveOrder.fromFirestore(doc))
-            .toList());
+  Stream<List<ActiveOrder>> _getActiveOrders(String type) {
+  final userId = _auth.currentUser?.uid;
+  if (userId == null) return Stream.value([]);
 
-    return Rx.combineLatest2<List<ActiveOrder>, List<ActiveOrder>, List<ActiveOrder>>(
-      tripsStream,
-      deliveriesStream,
-      (List<ActiveOrder> trips, List<ActiveOrder> deliveries) {
-        final combined = [...trips, ...deliveries];
-        combined.sort((a, b) => b.dateTime.compareTo(a.dateTime));
-        return combined;
-      },
+  final collection = type == 'Trip' ? 'trips' : 'deliveries';
+  final now = DateTime.now();
+
+  return _firestore
+      .collection(collection)
+      .where('userId', isEqualTo: userId)
+      .where('status', whereIn: ['pending', 'driver_pending', 'confirmed'])
+      .orderBy(type == 'Trip' ? 'tripDate' : 'deliveryDate', descending: true)
+      .snapshots()
+      .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          final order = ActiveOrder.fromFirestore(doc);
+          
+          // Get the time from the order
+          final orderTime = order.type == 'Trip' 
+              ? order.details['tripTime'] as String 
+              : order.details['deliveryTime'] as String;
+          
+          // Parse hours and minutes
+          final timeParts = orderTime.split(':');
+          final orderDateTime = DateTime(
+            order.dateTime.year,
+            order.dateTime.month,
+            order.dateTime.day,
+            int.parse(timeParts[0]),
+            int.parse(timeParts[1]),
+          );
+
+          // If order is expired, move it to history
+          if (orderDateTime.isBefore(now)) {
+            _moveToHistory(order);
+            return null;
+          }
+
+          return order;
+        })
+        .where((order) => order != null)
+        .cast<ActiveOrder>()
+        .toList();
+      });
+}
+
+Future<void> _moveToHistory(ActiveOrder order) async {
+  try {
+    final collection = order.type == 'Trip' ? 'trips' : 'deliveries';
+    final docRef = _firestore.collection(collection).doc(order.id);
+    
+    // Update the status to 'completed' if it's not already cancelled
+    if (order.status != 'cancelled') {
+      await docRef.update({
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Copy the order to history collection
+    await _firestore.collection('history').add({
+      ...order.details,
+      'originalId': order.id,
+      'type': order.type,
+      'userId': _auth.currentUser?.uid,
+      'status': order.status == 'cancelled' ? 'cancelled' : 'completed',
+      'movedToHistoryAt': FieldValue.serverTimestamp(),
+    });
+
+  } catch (e) {
+    print('Error moving order to history: $e');
+  }
+}
+
+Future<void> _acceptDriver(Map<String, dynamic> details) async {
+  try {
+    // Add debug logging
+    print('Accepting driver with details: $details');
+    
+    // Get and validate order ID
+    final String orderId = details['orderId'] ?? '';
+    if (orderId.isEmpty) {
+      throw Exception('Order ID not found in details: $details');
+    }
+
+    // Get and validate pending driver ID
+    final String? pendingDriverId = details['pendingDriverId'];
+    if (pendingDriverId == null) {
+      throw Exception('No pending driver ID found in order');
+    }
+
+    final collection = details['type'] == 'Trip' ? 'trips' : 'deliveries';
+    final orderRef = _firestore.collection(collection).doc(orderId);
+
+    // Check if document exists and has pending driver
+    final docSnap = await orderRef.get();
+    if (!docSnap.exists) {
+      throw Exception('Order document not found');
+    }
+
+    final data = docSnap.data() as Map<String, dynamic>;
+    if (data['pendingDriverId'] != pendingDriverId) {
+      throw Exception('Pending driver ID mismatch or not found');
+    }
+
+    // Update the order with driver confirmation
+    await orderRef.update({
+      'status': 'confirmed',
+      'driverId': pendingDriverId,
+      'confirmedAt': FieldValue.serverTimestamp(),
+      'pendingDriverId': null, // Clear the pending state
+      'driverRequestTime': null // Clear the request time
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Driver accepted successfully'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  } catch (e) {
+    print('Error accepting driver: $e'); // Debug print
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ),
     );
   }
+}
+
+Future<void> _declineDriver(Map<String, dynamic> details) async {
+  try {
+    // Get the order ID from the details
+    final String orderId = details['orderId'] ?? '';
+    if (orderId.isEmpty) {
+      throw Exception('Order ID not found');
+    }
+
+    final collection = details['type'] == 'Trip' ? 'trips' : 'deliveries';
+    final orderRef = _firestore.collection(collection).doc(orderId);
+
+    // Check if document exists first
+    final docSnap = await orderRef.get();
+    if (!docSnap.exists) {
+      throw Exception('Order document not found');
+    }
+
+    await orderRef.update({
+      'status': 'pending',
+      'pendingDriverId': null,
+      'driverRating': null,
+      'driverTotalRatings': null,
+      'driverRequestTime': null,
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Driver request declined'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  } catch (e) {
+    print('Error declining driver: $e'); // Add debug print
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+Color _getStatusColor(String status) {
+  switch (status.toLowerCase()) {
+    case 'pending':
+      return Colors.orange;
+    case 'driver_pending':
+      return Colors.blue;
+    case 'confirmed':
+      return Colors.green;
+    case 'in_progress':
+      return Colors.indigo;
+    default:
+      return Colors.grey;
+  }
+}
+
+Future<Map<String, dynamic>> _getDriverRatings(String driverId) async {
+  try {
+    // Get all trips and deliveries where this driver is assigned
+    final tripsQuery = await _firestore
+        .collection('trips')
+        .where('driverId', isEqualTo: driverId)
+        .where('feedbackGiven', isEqualTo: true)
+        .get();
+
+    final deliveriesQuery = await _firestore
+        .collection('deliveries')
+        .where('driverId', isEqualTo: driverId)
+        .where('feedbackGiven', isEqualTo: true)
+        .get();
+
+    // Collect all feedback IDs
+    List<String> feedbackIds = [];
+    feedbackIds.addAll(tripsQuery.docs.map((doc) => doc.data()['feedbackId'] as String));
+    feedbackIds.addAll(deliveriesQuery.docs.map((doc) => doc.data()['feedbackId'] as String));
+
+    if (feedbackIds.isEmpty) {
+      return _getDefaultRatings();
+    }
+
+    // Get all feedback documents
+    final feedbacks = await Future.wait(
+      feedbackIds.map((id) => _firestore.collection('feedback').doc(id).get())
+    );
+
+    double sumProfessionalism = 0;
+    double sumDrivingSkills = 0;
+    double sumPunctuality = 0;
+    double sumVehicleCondition = 0;
+    double sumOverall = 0;
+    int validFeedbackCount = 0;
+
+    for (var doc in feedbacks) {
+      if (!doc.exists) continue;
+      
+      final data = doc.data();
+      if (data == null) continue;
+
+      final ratings = List<Map<String, dynamic>>.from(data['ratings']);
+      if (ratings.isEmpty) continue;
+
+      sumProfessionalism += ratings[0]['rating'];
+      sumDrivingSkills += ratings[1]['rating'];
+      sumPunctuality += ratings[2]['rating'];
+      sumVehicleCondition += ratings[3]['rating'];
+      
+      double feedbackOverall = ratings.fold(0.0, (sum, item) => sum + item['rating']) / ratings.length;
+      sumOverall += feedbackOverall;
+      
+      validFeedbackCount++;
+    }
+
+    return {
+      'overallRating': validFeedbackCount > 0 ? (sumOverall / validFeedbackCount) : 0.0,
+      'professionalism': validFeedbackCount > 0 ? (sumProfessionalism / validFeedbackCount) : 0.0,
+      'drivingSkills': validFeedbackCount > 0 ? (sumDrivingSkills / validFeedbackCount) : 0.0,
+      'punctuality': validFeedbackCount > 0 ? (sumPunctuality / validFeedbackCount) : 0.0,
+      'vehicleCondition': validFeedbackCount > 0 ? (sumVehicleCondition / validFeedbackCount) : 0.0,
+      'totalRatings': validFeedbackCount,
+    };
+  } catch (e) {
+    print('Error calculating ratings: $e');
+    return _getDefaultRatings();
+  }
+}
+
+Map<String, dynamic> _getDefaultRatings() {
+  return {
+    'overallRating': 0.0,
+    'professionalism': 0.0,
+    'drivingSkills': 0.0,
+    'punctuality': 0.0,
+    'vehicleCondition': 0.0,
+    'totalRatings': 0,
+  };
+}
+
+Widget _buildRatingRow(String label, double rating) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8.0),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 16),
+        ),
+        Row(
+          children: [
+            Text(
+              rating.toStringAsFixed(1),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.star,
+              size: 20,
+              color: Colors.amber,
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -117,397 +400,228 @@ class _CActiveState extends State<CActive> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: const Color.fromARGB(255, 3, 76, 83),
-          foregroundColor: Colors.white,
-          title: const Text('Active Orders'),
-          automaticallyImplyLeading: false,
-          bottom: const TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
-            tabs: [
-              Tab(icon: Icon(Icons.directions_car), text: "Trips"),
-              Tab(icon: Icon(Icons.local_shipping), text: "Deliveries"),
-            ],
-          ),
-        ),
-        body: StreamBuilder<List<ActiveOrder>>(
-          stream: _getActiveOrders(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final orders = snapshot.data ?? [];
-            final trips = orders.where((order) => order.type == 'Trip').toList();
-            final deliveries = orders.where((order) => order.type == 'Delivery').toList();
-
-            return TabBarView(
-              children: [
-                _buildOrdersList(trips),
-                _buildOrdersList(deliveries),
-              ],
-            );
-          },
+  backgroundColor: Color.fromARGB(255, 3, 76, 83),
+  foregroundColor: Colors.white,
+  title: const Text("Active Order"),
+  bottom: TabBar(
+    controller: _tabController,
+    indicatorColor: Colors.white, // Makes the indicator white
+    labelColor: Colors.white, // Makes the selected tab text white
+    unselectedLabelColor: Colors.white70, // Makes unselected tab text slightly transparent white
+    tabs: const [
+      Tab(
+        icon: Icon(Icons.directions_car), // White car icon
+        text: "Trips"
+      ),
+      Tab(
+        icon: Icon(Icons.local_shipping), // White shipping icon
+        text: "Deliveries"
+      ),
+    ],
+  ),
+),
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildOrdersList('Trip'),
+            _buildOrdersList('Delivery'),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildOrdersList(List<ActiveOrder> orders) {
-    if (orders.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('No active orders',
-                style: TextStyle(fontSize: 16, color: Colors.grey)),
-          ],
-        ),
-      );
-    }
+  Widget _buildOrdersList(String type) {
+    return StreamBuilder<List<ActiveOrder>>(
+      stream: _getActiveOrders(type),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
 
-    return ListView.builder(
-      itemCount: orders.length,
-      padding: const EdgeInsets.all(8),
-      itemBuilder: (context, index) {
-        return _buildOrderCard(orders[index]);
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  type == 'Trip' ? Icons.directions_car : Icons.local_shipping,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No active ${type.toLowerCase()}s',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: snapshot.data!.length,
+          padding: const EdgeInsets.all(8),
+          itemBuilder: (context, index) {
+            final order = snapshot.data![index];
+            final bool isExpired = order.dateTime.isBefore(DateTime.now());
+            
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              child: ExpansionTile(
+                leading: Icon(
+                  type == 'Trip' ? Icons.directions_car : Icons.local_shipping,
+                  color: _getStatusColor(order.status),
+                ),
+                title: Text(
+                  '${type} #${order.id.substring(0, 8)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Date: ${DateFormat('MMM dd, yyyy HH:mm').format(order.dateTime)}'),
+                    Text(
+                      'Status: ${order.status}',
+                      style: TextStyle(
+                        color: _getStatusColor(order.status),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                children: [
+                  _buildDetailsSection(order),
+                ],
+              ),
+            );
+          },
+        );
       },
     );
   }
 
-  Widget _buildOrderCard(ActiveOrder order) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ExpansionTile(
-        leading: Icon(
-          order.type == 'Trip' ? Icons.directions_car : Icons.local_shipping,
-          color: _getStatusColor(order.status),
+  Widget _buildDetailsSection(ActiveOrder order) {
+  return Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Driver info section - same for both types
+        if (order.status == 'driver_pending' || order.status == 'confirmed') 
+          _buildDriverInfo(order.details, order),
+
+        // Location details - standardized for both types
+        Text('${order.type} Details:', 
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8,),
+
+        // Pickup Location
+        Text('Pickup Location:', 
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('City: ${order.details['pickupCity'] ?? 'N/A'}'),
+              Text('Region: ${order.details['pickupRegion'] ?? 'N/A'}'),
+            ],
+          ),
         ),
-        title: Text('${order.type} #${order.id.substring(0, 8)}'),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              DateFormat('MMM dd, yyyy HH:mm').format(order.dateTime),
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            Text(
-              'Status: ${order.status.toUpperCase()}',
-              style: TextStyle(
-                color: _getStatusColor(order.status),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+
+        const SizedBox(height: 8),
+
+        // Dropoff Location
+        Text('Drop-off Location:', 
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('City: ${order.details['dropoffCity'] ?? 'N/A'}'),
+              Text('Region: ${order.details['dropoffRegion'] ?? 'N/A'}'),
+            ],
+          ),
         ),
-        children: [
-          order.type == 'Trip' 
-              ? _buildTripDetails(order)
-              : _buildDeliveryDetails(order.details),
-          if (order.status == 'driver_pending')
-            _buildDriverRequest(order.details),
-        ],
-      ),
-    );
-  }
 
-  Color _getStatusColor(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'pending':
-        return const Color.fromARGB(255, 235, 141, 0);
-      case 'driver_pending':
-        return Colors.blue;
-      case 'confirmed':
-        return Colors.green;
-      case 'in_progress':
-        return Colors.indigo;
-      default:
-        return Colors.grey;
-    }
-  }
+        const SizedBox(height: 16),
 
-  Widget _buildTripDetails(ActiveOrder order) {
-    final details = order.details;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Trip Information:', 
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          _buildInfoRow('Date', DateFormat('MMM dd, yyyy').format(order.dateTime)),
-          _buildInfoRow('Time', details['tripTime'] ?? 'Not specified'),
-          _buildInfoRow('Status', order.status.toUpperCase()),
-          
-          const Divider(height: 24),
-          
-          Text('Route Details:', 
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          Card(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLocationRow(
-                    'Pickup Location',
-                    '${details['pickupCity'] ?? 'N/A'}, ${details['pickupRegion'] ?? 'N/A'}',
-                    Colors.blue,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildLocationRow(
-                    'Drop-off Location',
-                    '${details['dropoffCity'] ?? 'N/A'}, ${details['dropoffRegion'] ?? 'N/A'}',
-                    Colors.green,
-                  ),
-                ],
-              ),
-            ),
-          ),
+        // Type-specific details
+        if (order.type == 'Delivery' && order.details['package'] != null) 
+          _buildPackageDetails(order.details['package']),
 
-          if (details['passengers'] != null) ...[
-            const Divider(height: 24),
-            Text('Passenger Information:', 
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            ...List<Map<String, dynamic>>.from(details['passengers'])
-                .map((passenger) => Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildInfoRow('Gender', passenger['gender'] ?? 'N/A'),
-                            _buildInfoRow('Age', passenger['age']?.toString() ?? 'N/A'),
-                            const Divider(height: 16),
-                            _buildInfoRow('Pickup', '${passenger['pickupCity']}, ${passenger['pickupRegion']}'),
-                            _buildInfoRow('Drop-off', '${passenger['dropoffCity']}, ${passenger['dropoffRegion']}'),
-                          ],
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ],
+        const SizedBox(height: 16),
+        _detailRow('Status', order.status),
+        _detailRow('Date & Time', 
+            DateFormat('MMM dd, yyyy HH:mm').format(order.dateTime)),
+      ],
+    ),
+  );
+}
 
-          const Divider(height: 24),
-          Text('Price Information:', 
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          Card(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Total Price:', 
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(
-                    '${NumberFormat("#,##0").format(details['estimatedPrice'] ?? 0)} IQD',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 3, 76, 83),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeliveryDetails(Map<String, dynamic> details) {
-    final package = details['package'] as Map<String, dynamic>? ?? {};
-    final locations = package['locations'] as Map<String, dynamic>? ?? {};
-    final source = locations['source'] as Map<String, dynamic>? ?? {};
-    final destination = locations['destination'] as Map<String, dynamic>? ?? {};
-    final dimensions = package['dimensions'] as Map<String, dynamic>? ?? {};
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Delivery Information:', 
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          _buildInfoRow('Date', details['deliveryDate'] != null 
-              ? DateFormat('MMM dd, yyyy').format((details['deliveryDate'] as Timestamp).toDate())
-              : 'N/A'),
-          _buildInfoRow('Time', details['deliveryTime'] ?? 'N/A'),
-          _buildInfoRow('Status', details['status']?.toUpperCase() ?? 'PENDING'),
-
-          const Divider(height: 24),
-          Text('Route Details:', 
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          Card(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLocationRow(
-                    'Pickup Location',
-                    '${source['city'] ?? 'N/A'}, ${source['region'] ?? 'N/A'}',
-                    Colors.blue,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildLocationRow(
-                    'Drop-off Location',
-                    '${destination['city'] ?? 'N/A'}, ${destination['region'] ?? 'N/A'}',
-                    Colors.green,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const Divider(height: 24),
-          Text('Package Details:', 
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          Card(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoRow('Dimensions',
-                      '${dimensions['height'] ?? 'N/A'}x${dimensions['width'] ?? 'N/A'}x${dimensions['depth'] ?? 'N/A'} cm'),
-                  _buildInfoRow('Weight', '${dimensions['weight'] ?? 'N/A'} kg'),
-                ],
-              ),
-            ),
-          ),
-
-          const Divider(height: 24),
-          Text('Price Information:', 
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          Card(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Total Price:', 
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(
-                    '${NumberFormat("#,##0").format(details['estimatedPrice'] ?? 0)} IQD',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 3, 76, 83),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
+  Widget _detailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Text('$label: ', 
-              style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
           Text(value),
         ],
       ),
     );
   }
 
-  Widget _buildLocationRow(String label, String value, Color iconColor) {
-    return Row(
-      children: [
-        Icon(Icons.location_on, color: iconColor),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(color: Colors.grey[600])),
-              Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ),
-      ],
-    );
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.year}-${dateTime.month}-${dateTime.day} ${dateTime.hour}:${dateTime.minute}';
   }
 
-  Widget _buildDriverRequest(Map<String, dynamic> details) {
+  Widget _buildDriverRequest(Map<String, dynamic> order) {
     return Container(
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
+        color: Colors.blue.shade50,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.person_outline, color: Colors.blue),
-              SizedBox(width: 8),
-              Text(
-                'Driver Request',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Colors.blue,
-                ),
-              ),
-            ],
+          const Text(
+            'Driver Request',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          const SizedBox(height: 16),
-          if (details['driverRating'] != null)
-            _buildInfoRow('Driver Rating', 
-                '${details['driverRating'].toStringAsFixed(1)} (${details['driverTotalRatings']} reviews)'),
-          if (details['driverRequestTime'] != null)
-            _buildInfoRow('Requested', 
-                DateFormat('MMM dd, yyyy HH:mm').format((details['driverRequestTime'] as Timestamp).toDate())),
+          const SizedBox(height: 8),
+          _buildDriverRating(
+            order['driverRating'] ?? 0.0,
+            order['driverTotalRatings'] ?? 0,
+          ),
           const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => _respondToDriverRequest(details['id'], true),
+                  onPressed: () => _acceptDriver(order),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
                   ),
-                  child: const Text('Accept'),
+                  child: const Text('Accept Driver'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () => _respondToDriverRequest(details['id'], false),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                  ),
+                child: TextButton(
+                  onPressed: () => _declineDriver(order),
                   child: const Text('Decline'),
                 ),
               ),
@@ -518,18 +632,199 @@ class _CActiveState extends State<CActive> {
     );
   }
 
-  Future<void> _respondToDriverRequest(String? orderId, bool accept) async {
-    if (orderId == null) return;
+  Widget _buildDriverRating(double rating, int totalRatings) {
+  return Row(
+    children: [
+      const Icon(Icons.star, color: Colors.amber, size: 20),
+      const SizedBox(width: 4),
+      Text(
+        '${rating.toStringAsFixed(1)} ($totalRatings reviews)',
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    ],
+  );
+}
 
-    try {
-      // Implementation for accepting/declining driver request
-      // You'll need to update the order status in Firestore
-      // and handle any necessary notifications
-    } catch (e) {
-      print('Error responding to driver request: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
-    }
-  }
+  Widget _buildAcceptedDriverInfo(Map<String, dynamic> details) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.green.shade50,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.green.shade200),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green.shade700),
+            const SizedBox(width: 8),
+            Text(
+              'Driver Confirmed',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.green.shade700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildDriverRating(
+          details['driverRating'] ?? 0.0,
+          details['driverTotalRatings'] ?? 0,
+        ),
+        const SizedBox(height: 8),
+        if (details['confirmedAt'] != null) ...[
+          Text(
+            'Confirmed: ${DateFormat('MMM dd, yyyy HH:mm').format((details['confirmedAt'] as Timestamp).toDate())}',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+Widget _buildDriverInfo(Map<String, dynamic> details, ActiveOrder order) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    margin: const EdgeInsets.symmetric(vertical: 8),
+    decoration: BoxDecoration(
+      color: details['status'] == 'driver_pending' 
+          ? Colors.blue.shade50 
+          : Colors.green.shade50,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: details['status'] == 'driver_pending' 
+            ? Colors.blue.shade200 
+            : Colors.green.shade200
+      ),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          details['status'] == 'driver_pending' 
+              ? 'Driver Request Received'
+              : 'Driver Assigned',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: details['status'] == 'driver_pending' 
+                ? Colors.blue.shade700 
+                : Colors.green.shade700,
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // Add the detailed ratings section
+        FutureBuilder<Map<String, dynamic>>(
+          future: _getDriverRatings(details['pendingDriverId'] ?? details['driverId']),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final ratings = snapshot.data!;
+            return Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Driver Rating Summary',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Divider(),
+                    _buildRatingRow('Overall', ratings['overallRating']),
+                    _buildRatingRow('Professionalism', ratings['professionalism']),
+                    _buildRatingRow('Driving Skills', ratings['drivingSkills']),
+                    _buildRatingRow('Punctuality', ratings['punctuality']),
+                    _buildRatingRow('Vehicle', ratings['vehicleCondition']),
+                    Text(
+                      '${ratings['totalRatings']} total reviews',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        
+        // Add accept/decline buttons for pending driver requests
+        if (details['status'] == 'driver_pending') ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _acceptDriver({
+                    'orderId': order.id,
+                    'type': order.type,
+                    'pendingDriverId': details['pendingDriverId'],
+                    'driverRating': details['driverRating'],
+                    'driverTotalRatings': details['driverTotalRatings'],
+                  }),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Accept Driver'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _declineDriver({
+                    ...details,
+                    'orderId': order.id,
+                    'type': order.type,
+                  }),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
+                  child: const Text('Decline'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+Widget _buildPackageDetails(Map<String, dynamic> package) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text('Package Details:', style: TextStyle(fontWeight: FontWeight.bold)),
+      const SizedBox(height: 8),
+      Text('Height: ${package['dimensions']?['height']?.toString() ?? 'N/A'} cm'),
+      Text('Width: ${package['dimensions']?['width']?.toString() ?? 'N/A'} cm'),
+      Text('Depth: ${package['dimensions']?['depth']?.toString() ?? 'N/A'} cm'),
+      Text('Weight: ${package['dimensions']?['weight']?.toString() ?? 'N/A'} kg'),
+    ],
+  );
+}
 }
